@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>HR NEWS 貼文產生器</title>
+  <meta name="description" content="社群貼文模板編輯器：手機、電腦都能快速套版產出貼文，支援自製模板與分類。" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;700;900&family=Oswald:wght@400;500;700&family=Rajdhani:wght@500;700&family=Teko:wght@400;500;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="./css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">HR&nbsp;NEWS <span>貼文產生器</span></div>
+    <div class="header-actions">
+      <button id="importBtn" class="btn ghost" title="匯入模板 JSON">匯入</button>
+      <button id="exportAllBtn" class="btn ghost" title="把自製模板打包下載，方便手機↔電腦共用">匯出全部</button>
+    </div>
+  </header>
+
+  <!-- 模板一覽 -->
+  <main id="galleryView" class="view">
+    <div class="gallery-top">
+      <div id="catFilter" class="chips"></div>
+      <button id="newTemplateBtn" class="btn primary">＋ 自製模板</button>
+    </div>
+    <div id="gallery" class="gallery-grid"></div>
+    <p class="empty-hint" id="emptyHint" hidden>這個分類還沒有模板，點「＋ 自製模板」建立一個吧。</p>
+  </main>
+
+  <!-- 編輯器 -->
+  <main id="editorView" class="view hidden">
+    <div class="editor-bar">
+      <button id="backBtn" class="btn ghost">← 返回</button>
+      <div id="editorTitle" class="editor-title"></div>
+      <button id="downloadBtn" class="btn primary">下載 PNG</button>
+    </div>
+
+    <div class="editor-body">
+      <div class="stage-wrap">
+        <div class="stage" id="stage">
+          <canvas id="board"></canvas>
+          <canvas id="overlay"></canvas>
+        </div>
+        <p class="stage-hint">在圖上可直接拖曳移動、四角控制點縮放（以中心點縮放）、手機可雙指縮放。</p>
+      </div>
+
+      <aside class="panel">
+        <!-- 自製模板工具（僅建立/編輯模板時顯示）-->
+        <section id="builderTools" class="builder-tools hidden">
+          <h3>模板設定</h3>
+          <label class="field"><span>模板名稱</span><input id="tplName" type="text" /></label>
+          <label class="field"><span>分類</span>
+            <input id="tplCategory" type="text" list="catList" placeholder="例如：特戰英豪 / 遊戲新聞" />
+            <datalist id="catList"></datalist>
+          </label>
+          <label class="field"><span>尺寸</span>
+            <select id="tplSize">
+              <option value="1080x1080">方形 1080 × 1080</option>
+              <option value="1080x1350">直式 1080 × 1350</option>
+              <option value="1080x1920">限動 1080 × 1920</option>
+            </select>
+          </label>
+          <div class="add-row">
+            <button id="addBgBtn" class="btn small">上傳背景圖</button>
+            <button id="addTextBtn" class="btn small">＋ 文字</button>
+            <button id="addImageBtn" class="btn small">＋ 圖片框</button>
+            <button id="addShapeBtn" class="btn small">＋ 色塊</button>
+          </div>
+          <button id="saveTplBtn" class="btn primary block">儲存模板</button>
+          <hr />
+        </section>
+
+        <div class="tabs">
+          <button class="tab active" data-tab="fill">快速填寫</button>
+          <button class="tab" data-tab="props">微調</button>
+        </div>
+        <div id="fillPanel" class="tabpane"></div>
+        <div id="propsPanel" class="tabpane hidden"></div>
+      </aside>
+    </div>
+  </main>
+
+  <input id="fileImage" type="file" accept="image/*" hidden />
+  <input id="fileImport" type="file" accept="application/json,.json" hidden />
+  <div id="toast" class="toast" hidden></div>
+
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>
