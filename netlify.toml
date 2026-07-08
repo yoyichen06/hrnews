@@ -1,0 +1,15 @@
+# 純靜態網站，不需建置。直接把整個資料夾當作發佈內容。
+[build]
+  publish = "."
+  command = ""
+
+# 單頁應用，未知路徑一律回到首頁
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
