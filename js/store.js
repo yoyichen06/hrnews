@@ -5,7 +5,8 @@ import { BUILTIN_TEMPLATES } from './builtins.js';
 import { downloadText, deepClone } from './util.js';
 
 const KEY = 'hrnews.templates.v2';
-const SEED_KEY = 'hrnews.seeded.v2';
+const SEED_KEY = 'hrnews.seedVer';
+const SEED_VER = '3'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
 
 function read() {
   try {
@@ -27,20 +28,28 @@ function fromBuiltin(b) {
   return c;
 }
 
-// 第一次開啟時，把預設模板寫進 localStorage（之後就都可編輯/刪除）
-function seedIfNeeded() {
-  if (localStorage.getItem(SEED_KEY)) return;
-  // 從舊版 key 搬移使用者既有的自製模板
+// 建立/升級預設模板：
+//  - 缺少的預設模板 → 補上
+//  - 使用者「沒改過」的預設模板（沒有 updatedAt）→ 換成最新定義（例如加上新外框）
+//  - 使用者「改過並儲存過」的模板 → 保留不動
+function migrate() {
+  if (localStorage.getItem(SEED_KEY) === SEED_VER) return;
   let list = read();
+  // 從更舊的 key 搬移使用者既有的自製模板
   if (list.length === 0) {
     try { list = JSON.parse(localStorage.getItem('hrnews.customTemplates.v1') || '[]'); } catch (_) { list = []; }
   }
-  const have = new Set(list.map((t) => t.fromBuiltin || t.id));
-  for (const b of BUILTIN_TEMPLATES) if (!have.has(b.id)) list.push(fromBuiltin(b));
+  const byBuiltin = new Map();
+  for (const t of list) if (t.fromBuiltin) byBuiltin.set(t.fromBuiltin, t);
+  for (const b of BUILTIN_TEMPLATES) {
+    const ex = byBuiltin.get(b.id);
+    if (!ex) list.push(fromBuiltin(b));
+    else if (!ex.updatedAt) list[list.indexOf(ex)] = fromBuiltin(b);
+  }
   write(list);
-  localStorage.setItem(SEED_KEY, '1');
+  localStorage.setItem(SEED_KEY, SEED_VER);
 }
-seedIfNeeded();
+migrate();
 
 export const store = {
   all() {

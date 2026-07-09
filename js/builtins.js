@@ -10,6 +10,7 @@
 // -----------------------------------------------------------------------------
 
 import { uid, deepClone } from './util.js';
+import { VAL_FRAME, MC_FRAME } from './frames.js';
 
 // ---- 元素工廠（帶預設值，建立模板時只需覆寫需要的欄位）----
 function T(o = {}) {
@@ -130,35 +131,29 @@ export const BUILTIN_TEMPLATES = [
     builtin: true,
     width: 1080,
     height: 1350,
-    bgColor: '#05070c',
+    bgColor: '#0b0d12',
     elements: [
-      // 背景照片（可替換、可換混合模式）
+      // 背景照片：放在中央視窗（外框上下的銀色橫條會蓋住邊緣）
       I({ id: 'bg', role: 'background', isBackground: true, label: '背景圖片', x: 540, y: 675, w: 1080, h: 1350,
-          fit: 'cover', hint: '上傳主視覺照片，會鋪滿整個版面' }),
-      // 疊加圖層 Overlay（例如質感/光暈，預設加亮混合）
+          fit: 'cover', hint: '上傳主視覺照片（會放在中央視窗）' }),
+      // 疊加圖層 Overlay（材質／光暈，預設加亮）
       I({ id: 'overlay', role: 'overlay', label: '疊加圖層 Overlay', x: 540, y: 675, w: 1080, h: 1350,
           fit: 'cover', blendMode: 'screen', opacity: 0.6, hint: '疊加材質／光暈圖層（顆粒、霓虹、漸層等）' }),
-      // 上下漸層遮罩（各自獨立）
-      G({ id: 'gradTop', edge: 'top', label: '上漸層遮罩', color: '#05070c', size: 0.28, opacity: 0.9 }),
-      G({ id: 'gradBottom', edge: 'bottom', label: '下漸層遮罩', color: '#05070c', size: 0.5, opacity: 0.95 }),
-      // 固定外框（白框）
-      S({ id: 'frame', label: '外框（固定）', fixed: true, x: 540, y: 675, w: 1032, h: 1302, radius: 6,
-          noFill: true, opacity: 1, stroke: { color: '#ffffff', width: 5 } }),
-      // 固定：兔子 LOGO（上傳一次後就固定，可解鎖替換）
-      I({ id: 'logo', role: 'frame', label: '兔子 LOGO（固定）', fixed: true, x: 540, y: 120, w: 150, h: 150,
-          fit: 'contain', hint: '上傳你的 HR NEWS 兔子 LOGO（去背 PNG）' }),
-      // 可改文字與顏色的分類小字
-      T({ id: 'tag', label: 'VAL NEWS 小字', text: 'VAL NEWS', x: 540, y: 216,
-          font: 'Oswald', weight: 700, size: 30, color: '#ff4655', letterSpacing: 6, uppercase: true }),
-      // 主標題上方小圖 / LOGO（可上傳、可移動、可縮放、可替換）
-      I({ id: 'titleIcon', label: '主標題上方小圖 / LOGO', x: 540, y: 1010, w: 110, h: 110,
-          fit: 'contain', hint: '上傳主標題上方的小圖示或 LOGO（去背 PNG / SVG 皆可）' }),
-      // 主標題（大字、置底）
-      T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1160, boxWidth: 980,
-          font: 'Noto Sans TC', weight: 900, size: 96, color: '#ffffff', lineHeight: 1.1 }),
-      // 固定：底部帳號（可解鎖後修改）
-      T({ id: 'follow', label: 'FOLLOW US（固定）', fixed: true, text: 'FOLLOW US ・ @HR_NEWSTW', x: 540, y: 1300,
-          font: 'Oswald', weight: 500, size: 26, color: '#9fb0c3', letterSpacing: 4, uppercase: true }),
+      // 固定版型：你的 SVG（外框＋兔子 LOGO＋VAL NEWS＋FOLLOW US＋H&R）
+      I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
+          x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: VAL_FRAME }),
+      // 主標題上方小圖 / LOGO（例如隊伍、遊戲小標，可上傳/替換）
+      I({ id: 'titleIcon', label: '主標題上方小圖 / LOGO', x: 540, y: 935, w: 120, h: 120,
+          fit: 'contain', hint: '主標題上方的小圖或 LOGO（去背 PNG / SVG，可留空）' }),
+      // 名稱標籤（像 TenZ 那個紅框白底標籤）
+      S({ id: 'nameBox', label: '名稱標籤底框', x: 540, y: 1044, w: 300, h: 84, radius: 6,
+          fill: '#ffffff', opacity: 1, stroke: { color: '#e4002b', width: 6 } }),
+      T({ id: 'nameText', label: '名稱標籤文字', text: 'TenZ', x: 540, y: 1044, boxWidth: 300,
+          font: 'Oswald', weight: 700, size: 52, color: '#e4002b', uppercase: false }),
+      // 主標題（坐落在下方銀色橫條上）
+      T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1188, boxWidth: 960,
+          font: 'Noto Sans TC', weight: 900, size: 88, color: '#ffffff', lineHeight: 1.05,
+          stroke: { color: '#000000', width: 6 } }),
     ],
   },
   {
@@ -210,23 +205,35 @@ export const BUILTIN_TEMPLATES = [
   },
   {
     id: 'minecraft-update',
-    name: 'Minecraft・更新',
+    name: 'Minecraft 新聞（HR NEWS 版）',
     category: 'Minecraft',
     builtin: true,
     width: 1080,
-    height: 1080,
-    bgColor: '#1d2b1a',
+    height: 1350,
+    bgColor: '#0b0d12',
     elements: [
-      I({ id: 'bg', label: '背景圖', isBackground: true, x: 540, y: 540, w: 1080, h: 1080,
-          fit: 'cover', hint: '上傳背景圖，會鋪滿整個畫面（可移動、可從中心縮放）' }),
-      S({ id: 'scrim', label: '文字底色遮罩', x: 540, y: 840, w: 1080, h: 520, radius: 0,
-          fill: '#000000', opacity: 0.5 }),
-      T({ id: 'title', label: '主標題', text: 'MINECRAFT', x: 540, y: 770,
-          font: 'Anton', weight: 400, size: 128, color: '#ffffff' }),
-      T({ id: 'subtitle', label: '副標題', text: '1.21 更新內容', x: 540, y: 890,
-          font: 'Noto Sans TC', weight: 900, size: 58, color: '#8bd450' }),
-      T({ id: 'platform', label: '平台／版本', text: 'JAVA / BEDROCK', x: 540, y: 985,
-          font: 'Oswald', weight: 700, size: 36, color: '#d7ecc4', letterSpacing: 4, uppercase: true }),
+      // 背景照片：全出血（外框只有細邊＋LOGO 浮在照片上）
+      I({ id: 'bg', role: 'background', isBackground: true, label: '背景圖片', x: 540, y: 675, w: 1080, h: 1350,
+          fit: 'cover', hint: '上傳 Minecraft 截圖，會鋪滿整張' }),
+      I({ id: 'overlay', role: 'overlay', label: '疊加圖層 Overlay', x: 540, y: 675, w: 1080, h: 1350,
+          fit: 'cover', blendMode: 'screen', opacity: 0.5, hint: '疊加材質／光暈（可留空）' }),
+      // 下漸層遮罩：讓底部標題在照片上看得清楚
+      G({ id: 'gradBottom', edge: 'bottom', label: '下漸層遮罩', color: '#000000', size: 0.42, opacity: 0.85 }),
+      // 固定版型：你的 MC SVG（細外框＋兔子 LOGO＋MINECRAFT NEWS＋FOLLOW US＋H&R）
+      I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
+          x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: MC_FRAME }),
+      // 主標題上方遊戲 LOGO（例如 MINECRAFT 字標，可上傳/替換）
+      I({ id: 'titleIcon', label: '遊戲 LOGO（主標題上方）', x: 540, y: 940, w: 420, h: 120,
+          fit: 'contain', hint: '上傳 MINECRAFT 或其他遊戲字標（去背 PNG，可留空）' }),
+      // 版本／資訊標籤（深色膠囊，像「26.3 snapshot-3」）
+      S({ id: 'verBox', label: '版本標籤底框', x: 540, y: 1052, w: 340, h: 74, radius: 37,
+          fill: '#111418', opacity: 0.82 }),
+      T({ id: 'verText', label: '版本標籤文字', text: '26.3 SNAPSHOT-3', x: 540, y: 1052, boxWidth: 340,
+          font: 'Minecraft Ten', weight: 400, size: 34, color: '#ffffff', letterSpacing: 1 }),
+      // 主標題（白字、置底、加深黑邊）
+      T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1172, boxWidth: 960,
+          font: 'Noto Sans TC', weight: 900, size: 92, color: '#ffffff', lineHeight: 1.05,
+          stroke: { color: '#000000', width: 5 } }),
     ],
   },
   {
