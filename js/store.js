@@ -74,6 +74,13 @@ export const store = {
   remove(id) {
     write(read().filter((t) => t.id !== id));
   },
+  // 同步用：直接覆蓋（保留原本的 updatedAt，不像 save 會更新時間）
+  upsertRaw(tpl) {
+    const list = read();
+    const i = list.findIndex((t) => t.id === tpl.id);
+    if (i >= 0) list[i] = tpl; else list.push(tpl);
+    write(list);
+  },
   categories() {
     const seen = new Set();
     const cats = [];

@@ -7,6 +7,7 @@ import { instantiate, newBlankTemplate, makeText, makeImage, makeShape, makeGrad
 import { FONTS } from './fonts.js';
 import { importSVGFile } from './svg.js';
 import { assets, projects } from './db.js';
+import { syncCfg, signUp, signIn, signOut, currentUser, fetchRemote, pushRemote, markDeleted } from './sync.js';
 import { readImageFile, downloadDataURL, deepClone, clamp, uid } from './util.js';
 
 // ---------- 迷你工具 ----------
@@ -48,7 +49,7 @@ function slider(label, value, min, max, step, cb, fmt = (v) => v) {
 
 // ---------- 狀態 ----------
 // pages：多頁（輪播）用；state.doc 永遠指向目前這一頁。
-const state = { mode: 'post', doc: null, pages: [], pageIndex: 0, filter: '全部', editingCustomId: null, syncProps: null, projectId: null, projectName: '' };
+const state = { mode: 'post', doc: null, pages: [], pageIndex: 0, filter: '全部', editingCustomId: null, syncProps: null, projectId: null, projectName: '', user: null };
 let editor;
 let imgCb = null;
 
@@ -89,7 +90,7 @@ async function renderGallery() {
     const actions = h('div', { class: 'card-actions' },
       h('button', { class: 'icon-btn', title: '編輯模板', onclick: (e) => { e.stopPropagation(); openBuilder(tpl); } }, '✎'),
       h('button', { class: 'icon-btn', title: '複製一份', onclick: (e) => { e.stopPropagation(); duplicateToCustom(tpl); } }, '⧉'),
-      h('button', { class: 'icon-btn', title: '刪除模板', onclick: (e) => { e.stopPropagation(); if (confirm(`刪除模板「${tpl.name}」？`)) { store.remove(tpl.id); renderGallery(); } } }, '🗑'));
+      h('button', { class: 'icon-btn', title: '刪除模板', onclick: (e) => { e.stopPropagation(); if (confirm(`刪除模板「${tpl.name}」？`)) { store.remove(tpl.id); delRemote('template', tpl.id); renderGallery(); } } }, '🗑'));
     grid.append(h('div', { class: 'card', onclick: () => openPost(tpl) },
       img,
       actions,
@@ -108,6 +109,7 @@ function duplicateToCustom(tpl) {
   copy.custom = true;
   delete copy.builtin;
   store.save(copy);
+  pushOne('template', copy.id, copy, copy.updatedAt);
   toast('已複製為自製模板 ✓');
   renderGallery();
 }
@@ -528,6 +530,7 @@ $('#saveTplBtn').addEventListener('click', () => {
   state.doc.name = $('#tplName').value.trim() || '未命名模板';
   state.doc.category = $('#tplCategory').value.trim() || '自訂';
   store.save(state.doc);
+  pushOne('template', state.doc.id, state.doc, state.doc.updatedAt);
   toast('模板已儲存 ✓');
   showView('gallery');
   renderGallery();
@@ -577,6 +580,7 @@ $('#fileSvg').addEventListener('change', async (e) => {
   try {
     const tpl = await importSVGFile(f);
     store.save(tpl);
+    pushOne('template', tpl.id, tpl, tpl.updatedAt);
     toast('SVG 模板已匯入 ✓');
     renderGallery();
     openBuilder(tpl); // 匯入後直接進編輯，方便擺放文字欄位
@@ -600,7 +604,7 @@ $('#fileImport').addEventListener('change', (e) => {
   if (!f) return;
   const r = new FileReader();
   r.onload = () => {
-    try { const n = store.importAll(r.result); toast(`已匯入 ${n} 個模板 ✓`); renderGallery(); }
+    try { const n = store.importAll(r.result); toast(`已匯入 ${n} 個模板 ✓`); renderGallery(); syncNow(true); }
     catch (_) { toast('匯入失敗：檔案格式不正確'); }
   };
   r.readAsText(f);
@@ -636,7 +640,12 @@ $('#fileAssets').addEventListener('change', async (e) => {
   e.target.value = '';
   const cat = assetCatState.current === '全部' ? '未分類' : assetCatState.current;
   for (const f of files) {
-    try { const d = await readImageFile(f); await assets.put({ id: uid('as'), src: d.src, w: d.w, h: d.h, name: f.name, category: cat, savedAt: Date.now() }); } catch (_) {}
+    try {
+      const d = await readImageFile(f);
+      const a = { id: uid('as'), src: d.src, w: d.w, h: d.h, name: f.name, category: cat, savedAt: Date.now() };
+      await assets.put(a);
+      pushOne('asset', a.id, a, a.savedAt);
+    } catch (_) {}
   }
   renderAssetSide();
 });
@@ -684,7 +693,7 @@ async function renderAssetSide() {
   for (const a of shown) {
     grid.append(h('div', { class: 'asset-card pickable', onclick: () => useAsset(a) },
       h('img', { src: a.src, alt: a.name || '素材' }),
-      h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await assets.remove(a.id); renderAssetSide(); } }, '🗑')));
+      h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await assets.remove(a.id); delRemote('asset', a.id); renderAssetSide(); } }, '🗑')));
   }
 }
 function initAssetSide() {
@@ -700,8 +709,10 @@ async function saveProject() {
   if (!state.projectId) state.projectId = uid('proj');
   let thumb = '';
   try { thumb = await Editor.renderThumb(deepClone(state.pages[0]), 240); } catch (_) {}
-  await projects.put({ id: state.projectId, name: state.projectName || state.doc.name || '貼文',
-    pages: JSON.stringify(state.pages), thumb, count: state.pages.length, savedAt: Date.now() });
+  const proj = { id: state.projectId, name: state.projectName || state.doc.name || '貼文',
+    pages: JSON.stringify(state.pages), thumb, count: state.pages.length, savedAt: Date.now() };
+  await projects.put(proj);
+  pushOne('project', proj.id, proj, proj.savedAt);
 }
 async function openProject(pr) {
   state.mode = 'post';
@@ -733,10 +744,114 @@ async function openHistory() {
     grid.append(h('div', { class: 'asset-card pickable', onclick: () => openProject(pr) },
       h('img', { src: pr.thumb || '', alt: pr.name }),
       h('div', { class: 'aname' }, `${pr.name}・${pr.count || 1}頁`),
-      h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await projects.remove(pr.id); openHistory(); } }, '🗑')));
+      h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await projects.remove(pr.id); delRemote('project', pr.id); openHistory(); } }, '🗑')));
   }
 }
 $('#historyBtn').addEventListener('click', openHistory);
+
+// =============================================================
+//  雲端同步（Supabase，Email 登入，同步模板/素材/歷史）
+// =============================================================
+function updateSyncBtn() { $('#syncBtn').textContent = state.user ? '☁ 已同步' : '☁ 同步'; }
+
+// 蒐集本機所有可同步項目（跳過未編輯過的內建模板）
+async function collectLocal() {
+  const out = [];
+  for (const t of store.all()) if (t.updatedAt || !t.fromBuiltin) out.push({ kind: 'template', item_id: t.id, data: t, updated_at: t.updatedAt || 1 });
+  for (const a of await assets.list()) out.push({ kind: 'asset', item_id: a.id, data: a, updated_at: a.savedAt || 1 });
+  for (const p of await projects.list()) out.push({ kind: 'project', item_id: p.id, data: p, updated_at: p.savedAt || 1 });
+  return out;
+}
+function applyLocal(kind, data) {
+  if (kind === 'template') store.upsertRaw(data);
+  else if (kind === 'asset') assets.put(data);
+  else if (kind === 'project') projects.put(data);
+}
+function removeLocalItem(kind, id) {
+  if (kind === 'template') store.remove(id);
+  else if (kind === 'asset') assets.remove(id);
+  else if (kind === 'project') projects.remove(id);
+}
+// 有登入時把單一項目推上雲端（fire-and-forget）
+function pushOne(kind, id, data, updated) {
+  if (state.user) pushRemote([{ kind, item_id: id, data, updated_at: updated || Date.now() }]).catch(() => {});
+}
+function delRemote(kind, id) { if (state.user) markDeleted(kind, id); }
+
+let syncing = false;
+async function syncNow(silent) {
+  if (!state.user || syncing) return;
+  syncing = true;
+  try {
+    const remote = await fetchRemote();
+    const rmap = new Map(remote.map((r) => [r.kind + ':' + r.item_id, r]));
+    const local = await collectLocal();
+    // 雲端較新 → 覆蓋本機；雲端墓碑 → 刪本機
+    for (const r of remote) {
+      const l = local.find((x) => x.kind === r.kind && x.item_id === r.item_id);
+      const rt = new Date(r.updated_at).getTime();
+      if (r.deleted) { if (l && rt >= l.updated_at) removeLocalItem(r.kind, r.item_id); continue; }
+      if (!l || rt > l.updated_at) applyLocal(r.kind, r.data);
+    }
+    // 本機較新 / 雲端沒有 → 推上去
+    const toPush = [];
+    for (const l of local) {
+      const r = rmap.get(l.kind + ':' + l.item_id);
+      const rt = r ? new Date(r.updated_at).getTime() : -1;
+      if (!r || l.updated_at > rt) toPush.push({ kind: l.kind, item_id: l.item_id, data: l.data, updated_at: l.updated_at });
+    }
+    if (toPush.length) await pushRemote(toPush);
+    renderGallery();
+    if (!$('#editorView').classList.contains('hidden')) renderAssetSide();
+    if (!silent) toast('已同步 ✓');
+  } catch (e) {
+    if (!silent) toast('同步失敗：' + (e.message || e));
+  } finally { syncing = false; }
+}
+
+function openSyncModal() {
+  const body = openModal('雲端同步（Supabase）');
+  const cfg = syncCfg.get();
+  const urlIn = h('input', { type: 'text', value: cfg.url || '', placeholder: 'https://xxxx.supabase.co' });
+  const keyIn = h('input', { type: 'text', value: cfg.key || '', placeholder: 'anon public key' });
+  body.append(h('div', { class: 'group' }, h('div', { class: 'g-label' }, '1. 連線設定'),
+    h('label', { class: 'prop' }, h('span', {}, 'Project URL'), urlIn),
+    h('label', { class: 'prop' }, h('span', {}, 'anon public key'), keyIn),
+    h('button', { class: 'btn small', onclick: () => { if (!urlIn.value.trim() || !keyIn.value.trim()) return toast('請填 URL 與 key'); syncCfg.set(urlIn.value, keyIn.value); toast('已儲存'); openSyncModal(); } }, '儲存連線設定'),
+    h('div', { class: 'hint-line' }, 'Supabase 專案 → Project Settings → API 可找到 URL 與 anon public key。第一次使用請先照 README 在 SQL Editor 建好 items 表。')));
+
+  if (!syncCfg.configured()) return;
+
+  const authBox = h('div', { class: 'group' }, h('div', { class: 'g-label' }, '2. 登入 / 同步'));
+  body.append(authBox);
+  if (state.user) {
+    authBox.append(
+      h('div', { class: 'hint-line' }, '已登入：' + (state.user.email || '')),
+      h('div', { class: 'mini-actions' },
+        h('button', { class: 'btn small primary', onclick: async () => { await syncNow(); } }, '立即同步'),
+        h('button', { class: 'btn small', onclick: async () => { await signOut(); state.user = null; updateSyncBtn(); openSyncModal(); toast('已登出'); } }, '登出')));
+  } else {
+    const email = h('input', { type: 'text', placeholder: 'you@example.com' });
+    const pass = h('input', { type: 'password', placeholder: '密碼（至少 6 碼）' });
+    const doLogin = async (isSignup) => {
+      try {
+        if (isSignup) { await signUp(email.value.trim(), pass.value); toast('已註冊，請直接登入（若開了信箱驗證，先去收信）'); }
+        state.user = await signIn(email.value.trim(), pass.value);
+        updateSyncBtn();
+        toast('登入成功，同步中…');
+        openSyncModal();
+        await syncNow();
+      } catch (e) { toast('失敗：' + (e.message || e)); }
+    };
+    authBox.append(
+      h('label', { class: 'prop' }, h('span', {}, 'Email'), email),
+      h('label', { class: 'prop' }, h('span', {}, '密碼'), pass),
+      h('div', { class: 'mini-actions' },
+        h('button', { class: 'btn small primary', onclick: () => doLogin(false) }, '登入'),
+        h('button', { class: 'btn small', onclick: () => doLogin(true) }, '註冊新帳號')));
+  }
+}
+$('#syncBtn').addEventListener('click', openSyncModal);
 
 // =============================================================
 //  復原 / 重做（Ctrl+Z / Ctrl+Y、預設記憶 100 步）
@@ -798,6 +913,10 @@ editor = new Editor($('#board'), $('#overlay'));
 editor.onSelect = (el) => { buildProps(el); if (el) activateTab('props'); };
 editor.onChange = () => { state.syncProps && state.syncProps(); histRecord(); };
 renderGallery();
+
+// 若已設定並登入過，載入時自動同步
+updateSyncBtn();
+currentUser().then((u) => { state.user = u; updateSyncBtn(); if (u) syncNow(true); }).catch(() => {});
 
 // 加上 ?debug 可在 console 取用 editor（方便進階操作／測試），一般使用者不受影響。
 if (new URLSearchParams(location.search).has('debug')) window.__editor = editor;

@@ -84,6 +84,34 @@
 
 ---
 
+## 雲端同步（Supabase，跨裝置）
+
+用 email 登入，把**模板、素材庫、歷史排版**同步到雲端，換手機或電腦都能拿到同一份資料。
+
+1. 到 [supabase.com](https://supabase.com) 開一個免費專案。
+2. 專案的 **SQL Editor** 執行以下建表語法（一次就好）：
+
+   ```sql
+   create table if not exists items (
+     uid uuid not null default auth.uid(),
+     kind text not null,
+     item_id text not null,
+     data jsonb,
+     deleted boolean default false,
+     updated_at timestamptz default now(),
+     primary key (uid, kind, item_id)
+   );
+   alter table items enable row level security;
+   create policy "own" on items for all
+     using (uid = auth.uid()) with check (uid = auth.uid());
+   ```
+3. **Project Settings → API** 複製 `Project URL` 與 `anon public key`。
+4. 回到網站點右上「☁ 同步」→ 貼上 URL 與 key →「儲存連線設定」→ 用 email 註冊 / 登入。
+5. 登入後會自動同步；之後在任何裝置用同一組帳號登入就會抓到同一份資料。
+
+> anon public key 放在前端是安全的（受 Row Level Security 保護，每個帳號只讀寫自己的資料）。
+> 若在 Supabase 開了「Confirm email」，註冊後要先去收信驗證再登入。
+
 ## 部署到 Netlify
 
 這是純靜態站，沒有建置步驟：
