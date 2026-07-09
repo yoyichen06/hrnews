@@ -17,7 +17,6 @@
   <header class="app-header">
     <div class="brand">HR&nbsp;NEWS <span>貼文產生器</span></div>
     <div class="header-actions">
-      <button id="assetsBtn" class="btn ghost" title="素材庫：隨時上傳、保留、刪除素材">素材庫</button>
       <button id="historyBtn" class="btn ghost" title="歷史排版：打開之前做過的貼文繼續改">歷史</button>
       <button id="importBtn" class="btn ghost" title="匯入模板 JSON">匯入</button>
       <button id="exportAllBtn" class="btn ghost" title="把自製模板打包下載，方便手機↔電腦共用">匯出全部</button>
@@ -42,6 +41,7 @@
   <main id="editorView" class="view hidden">
     <div class="editor-bar">
       <button id="backBtn" class="btn ghost">← 返回</button>
+      <button id="assetToggle" class="btn ghost" title="素材庫">☰ 素材</button>
       <div id="editorTitle" class="editor-title"></div>
       <div class="download-group">
         <select id="dlFormat" title="下載格式">
@@ -54,6 +54,18 @@
     </div>
 
     <div class="editor-body">
+      <!-- 左側素材庫（獨立面板、可分類）-->
+      <aside class="asset-side" id="assetSide">
+        <div class="asset-side-head">
+          <span>素材庫</span>
+          <button id="assetSideClose" class="modal-close" title="收合">×</button>
+        </div>
+        <button id="assetUploadBtn" class="btn small primary block">上傳素材</button>
+        <div id="assetCats" class="asset-cats"></div>
+        <div id="assetSideGrid" class="asset-side-grid"></div>
+        <p class="hint-line" style="margin-top:auto">點素材可套到選取中的圖片欄位；沒選則新增到畫布。</p>
+      </aside>
+
       <div class="stage-wrap">
         <div class="stage" id="stage">
           <canvas id="board"></canvas>

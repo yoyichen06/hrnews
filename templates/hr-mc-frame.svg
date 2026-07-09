@@ -129,23 +129,23 @@
         </g>
       </g>
       <g>
-        
-        
-        
+        <rect x="464.67" y="219.42" width="150.67" height="43.77" style="fill: #c6c6c6; filter: url(#drop-shadow-7);"></rect>
+        <polygon points="467.22 263.19 467.22 221.97 615.33 221.97 615.33 219.42 467.22 219.42 464.67 219.42 464.67 221.97 464.67 263.19 467.22 263.19" style="fill: #dbdbdb;"></polygon>
+        <polygon points="612.78 219.42 612.78 260.64 464.67 260.64 464.67 263.19 612.78 263.19 615.33 263.19 615.33 260.64 615.33 219.42 612.78 219.42" style="fill: #605f5e;"></polygon>
         <g>
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
-          
+          <path d="M482.38,245.98v-10.07h1.44v1.44h1.44v1.44h-1.44v7.19h-1.44ZM485.25,240.23v-1.44h1.44v1.44h-1.44ZM488.13,245.98v-7.19h-1.44v-1.44h1.44v-1.44h1.44v10.07h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M491,245.98v-1.44h1.44v-7.19h-1.44v-1.44h4.31v1.44h-1.44v7.19h1.44v1.44h-4.31Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M496.76,245.98v-10.07h1.44v1.44h1.44v1.44h-1.44v7.19h-1.44ZM499.63,240.23v-1.44h1.44v1.44h-1.44ZM502.51,245.98v-4.31h-1.44v-1.44h1.44v-4.31h1.44v10.07h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M505.38,245.98v-10.07h7.19v1.44h-5.75v1.44h2.88v1.44h-2.88v4.31h5.75v1.44h-7.19Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M514.01,244.54v-7.19h1.44v7.19h-1.44ZM515.45,237.35v-1.44h4.31v1.44h-4.31ZM515.45,245.98v-1.44h4.31v1.44h-4.31ZM519.76,238.79v-1.44h1.44v1.44h-1.44ZM519.76,244.54v-1.44h1.44v1.44h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M522.64,245.98v-10.07h5.75v1.44h-4.31v1.44h4.31v1.44h-4.31v5.75h-1.44ZM528.39,238.79v-1.44h1.44v1.44h-1.44ZM528.39,245.98v-5.75h1.44v5.75h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M531.27,245.98v-8.63h1.44v1.44h4.31v-1.44h1.44v8.63h-1.44v-5.75h-4.31v5.75h-1.44ZM532.7,237.35v-1.44h4.31v1.44h-4.31Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M539.89,245.98v-10.07h7.19v1.44h-5.75v1.44h2.88v1.44h-2.88v5.75h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M551.4,245.98v-8.63h-2.88v-1.44h7.19v1.44h-2.88v8.63h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M565.78,245.98v-10.07h1.44v1.44h1.44v1.44h-1.44v7.19h-1.44ZM568.65,240.23v-1.44h1.44v1.44h-1.44ZM571.53,245.98v-4.31h-1.44v-1.44h1.44v-4.31h1.44v10.07h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M574.4,245.98v-10.07h7.19v1.44h-5.75v1.44h2.88v1.44h-2.88v4.31h5.75v1.44h-7.19Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M583.03,245.98v-10.07h1.44v7.19h1.44v1.44h-1.44v1.44h-1.44ZM585.91,243.1v-1.44h1.44v1.44h-1.44ZM588.78,245.98v-1.44h-1.44v-1.44h1.44v-7.19h1.44v10.07h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
+          <path d="M591.66,238.79v-1.44h1.44v1.44h-1.44ZM591.66,244.54v-1.44h1.44v1.44h-1.44ZM593.1,237.35v-1.44h5.75v1.44h-5.75ZM593.1,240.23v-1.44h4.31v1.44h-4.31ZM593.1,245.98v-1.44h4.31v1.44h-4.31ZM597.41,244.54v-4.31h1.44v4.31h-1.44Z" style="fill: #191919; stroke: #191919; stroke-miterlimit: 10; stroke-width: .25px;"></path>
         </g>
       </g>
     </g>

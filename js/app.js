@@ -130,6 +130,7 @@ async function openPost(tpl) {
   $('#pageBar').classList.remove('hidden'); // 多頁只在套版產文時出現
   $('#editorTitle').textContent = tpl.name;
   showView('editor');
+  initAssetSide();
   await editor.setDoc(state.doc);
   buildFillForm();
   renderPageStrip();
@@ -153,6 +154,7 @@ async function openBuilder(tpl) {
   refreshCatList();
   $('#editorTitle').textContent = tpl ? '編輯模板' : '新模板';
   showView('editor');
+  initAssetSide();
   await editor.setDoc(doc);
   buildFillForm();
   activateTab('fill');
@@ -288,7 +290,6 @@ function fieldGroup(el, isFixed = false) {
   if (el.src) g.append(h('img', { class: 'thumb-preview', src: el.src }));
   g.append(h('div', { class: 'mini-actions' },
     h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(el.id, d).then(buildFillForm)) }, el.src ? '替換圖片' : '上傳圖片'),
-    libButton(el.id),
     el.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(el.id); buildFillForm(); } }, '清除') : null,
     h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調')));
   return g;
@@ -296,14 +297,13 @@ function fieldGroup(el, isFixed = false) {
 
 // 背景設定：背景圖 + 疊加圖層(混合模式/不透明度) + 上下漸層遮罩
 function buildBackgroundGroup(bgEl, ovEl, grads) {
-  const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, '背景設定', h('span', { class: 'badge' }, '背景 / 疊加 / 遮罩')));
+  const g = h('details', { class: 'group', open: true }, h('summary', {}, '背景設定 ', h('span', { class: 'badge' }, '背景 / 疊加 / 遮罩')));
 
   if (bgEl) {
     g.append(h('div', { class: 'hint-line' }, '背景圖片'));
     if (bgEl.src) g.append(h('img', { class: 'thumb-preview', src: bgEl.src }));
     g.append(h('div', { class: 'mini-actions' },
       h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(bgEl.id, d).then(buildFillForm)) }, bgEl.src ? '替換背景圖' : '上傳背景圖'),
-      libButton(bgEl.id),
       bgEl.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(bgEl.id); buildFillForm(); } }, '清除') : null,
       h('button', { class: 'btn small', onclick: () => { editor.select(bgEl.id); activateTab('props'); } }, '位置 / 縮放')));
   }
@@ -313,7 +313,6 @@ function buildBackgroundGroup(bgEl, ovEl, grads) {
     if (ovEl.src) g.append(h('img', { class: 'thumb-preview', src: ovEl.src }));
     g.append(h('div', { class: 'mini-actions' },
       h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(ovEl.id, d).then(buildFillForm)) }, ovEl.src ? '替換 Overlay' : '上傳 Overlay 圖片'),
-      libButton(ovEl.id),
       ovEl.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(ovEl.id); buildFillForm(); } }, '清除') : null));
     const blend = h('select', { onchange: (e) => editor.update(ovEl.id, { blendMode: e.target.value }) });
     for (const b of BLEND_MODES) blend.append(h('option', { value: b.v, ...(b.v === ovEl.blendMode ? { selected: true } : {}) }, b.label));
@@ -417,7 +416,6 @@ function buildProps(el) {
     pane.append(
       h('div', { class: 'mini-actions' },
         h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(el.id, d).then(() => { buildProps(editor.selected); buildFillForm(); })) }, el.src ? '替換圖片' : '上傳圖片'),
-        libButton(el.id),
         el.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(el.id); buildProps(editor.selected); buildFillForm(); } }, '清除') : null),
       h('label', { class: 'prop' }, h('span', {}, '顯示方式'), fit),
       h('label', { class: 'prop' }, h('span', {}, '混合模式'), blend),
@@ -446,7 +444,7 @@ function strokeControls(el) {
       ? { color: (el.stroke && el.stroke.color) || '#000000', width: (el.stroke && el.stroke.width) || 6 } : null });
     buildProps(editor.selected);
   } });
-  const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, '文字外框（描邊）'),
+  const g = h('details', { class: 'group' }, h('summary', {}, '文字外框（描邊）'),
     h('label', { class: 'inline' }, chk, h('span', { class: 'hint-line' }, '開啟外框')));
   if (on) {
     g.append(slider('外框粗細', el.stroke.width, 0, 40, 1, (v) => editor.update(el.id, { stroke: { ...el.stroke, width: v } })));
@@ -462,7 +460,7 @@ function shadowControls(el) {
   const sh = el.shadow || { on: false };
   const set = (patch) => editor.update(el.id, { shadow: { ...SHADOW_DEF, ...(el.shadow || {}), ...patch } });
   const chk = h('input', { type: 'checkbox', ...(sh.on ? { checked: true } : {}), onchange: (e) => { set({ on: e.target.checked }); buildProps(editor.selected); } });
-  const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, '陰影'),
+  const g = h('details', { class: 'group', ...(sh.on ? { open: true } : {}) }, h('summary', {}, '陰影'),
     h('label', { class: 'inline' }, chk, h('span', { class: 'hint-line' }, '開啟陰影')));
   if (sh.on) {
     g.append(
@@ -625,42 +623,73 @@ function openModal(title, headActions = []) {
 }
 
 // =============================================================
-//  素材庫（IndexedDB）
+//  素材庫（左側面板 + 自訂分類，IndexedDB）
 // =============================================================
-let assetFilesCb = null;
+const ACAT_KEY = 'hrnews.assetCats';
+const assetCatState = { current: '全部' };
+const readAssetCats = () => { try { return JSON.parse(localStorage.getItem(ACAT_KEY) || '[]'); } catch (_) { return []; } };
+const writeAssetCats = (l) => localStorage.setItem(ACAT_KEY, JSON.stringify(l));
+
+// 上傳：存到目前選的分類
 $('#fileAssets').addEventListener('change', async (e) => {
   const files = [...e.target.files];
   e.target.value = '';
+  const cat = assetCatState.current === '全部' ? '未分類' : assetCatState.current;
   for (const f of files) {
-    try { const d = await readImageFile(f); await assets.put({ id: uid('as'), src: d.src, w: d.w, h: d.h, name: f.name, savedAt: Date.now() }); } catch (_) {}
+    try { const d = await readImageFile(f); await assets.put({ id: uid('as'), src: d.src, w: d.w, h: d.h, name: f.name, category: cat, savedAt: Date.now() }); } catch (_) {}
   }
-  if (assetFilesCb) assetFilesCb();
+  renderAssetSide();
 });
-function uploadAssets(after) { assetFilesCb = after; $('#fileAssets').click(); }
+$('#assetUploadBtn').addEventListener('click', () => $('#fileAssets').click());
+$('#assetToggle').addEventListener('click', () => { $('#assetSide').classList.toggle('collapsed'); });
+$('#assetSideClose').addEventListener('click', () => $('#assetSide').classList.add('collapsed'));
 
-async function openAssetLibrary(onPick) {
-  const upBtn = h('button', { class: 'btn small primary', onclick: () => uploadAssets(refresh) }, '上傳素材');
-  const body = openModal(onPick ? '素材庫（點選要用的素材）' : '素材庫', [upBtn]);
-  const grid = h('div', { class: 'asset-grid' });
-  body.append(grid);
-  async function refresh() {
-    const list = await assets.list();
-    grid.innerHTML = '';
-    if (!list.length) { grid.append(h('p', { class: 'modal-empty' }, '還沒有素材，點「上傳素材」加入（LOGO、材質、光暈…都可以）。')); return; }
-    for (const a of list) {
-      grid.append(h('div', { class: 'asset-card' + (onPick ? ' pickable' : ''), onclick: () => { if (onPick) { onPick({ src: a.src, w: a.w, h: a.h }); closeModal(); } } },
-        h('img', { src: a.src, alt: a.name || '素材' }),
-        h('div', { class: 'aname' }, a.name || '素材'),
-        h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await assets.remove(a.id); refresh(); } }, '🗑')));
-    }
+// 點素材：套到選取中的圖片欄位，否則在畫布新增一個圖片
+async function useAsset(a) {
+  const sel = editor.selected;
+  if (sel && sel.type === 'image') {
+    await editor.replaceImage(sel.id, { src: a.src, w: a.w, h: a.h });
+    buildFillForm();
+    if (editor.selectedId === sel.id) buildProps(editor.selected);
+  } else {
+    const el = makeImage({ label: '素材圖', x: state.doc.width / 2, y: state.doc.height / 2, w: Math.min(500, state.doc.width * 0.5), h: Math.min(500, state.doc.width * 0.5) });
+    el.src = a.src;
+    if (a.w && a.h) el.h = Math.round(el.w * (a.h / a.w));
+    editor.addElement(el);
+    buildFillForm();
   }
-  refresh();
+  toast('已套用素材');
 }
-$('#assetsBtn').addEventListener('click', () => openAssetLibrary(null));
 
-// 圖片欄位用的「素材庫」挑選鈕
-function libButton(elId) {
-  return h('button', { class: 'btn small', onclick: () => openAssetLibrary((pick) => editor.replaceImage(elId, pick).then(() => { buildFillForm(); if (editor.selectedId === elId) buildProps(editor.selected); })) }, '素材庫');
+async function renderAssetSide() {
+  const list = await assets.list();
+  const userCats = readAssetCats();
+  const cats = ['全部', ...userCats];
+  // 分類 chips
+  const catBox = $('#assetCats');
+  catBox.innerHTML = '';
+  for (const c of cats) {
+    catBox.append(h('button', { class: 'chip' + (assetCatState.current === c ? ' active' : ''),
+      onclick: () => { assetCatState.current = c; renderAssetSide(); } }, c));
+  }
+  catBox.append(h('button', { class: 'chip addcat', title: '新增分類', onclick: () => {
+    const name = (prompt('新增素材分類名稱：') || '').trim();
+    if (name && !userCats.includes(name) && name !== '全部') { writeAssetCats([...userCats, name]); assetCatState.current = name; renderAssetSide(); }
+  } }, '＋分類'));
+  // 素材格
+  const grid = $('#assetSideGrid');
+  grid.innerHTML = '';
+  const shown = list.filter((a) => assetCatState.current === '全部' || (a.category || '未分類') === assetCatState.current);
+  if (!shown.length) { grid.append(h('p', { class: 'hint-line' }, '這個分類還沒有素材，點「上傳素材」加入。')); return; }
+  for (const a of shown) {
+    grid.append(h('div', { class: 'asset-card pickable', onclick: () => useAsset(a) },
+      h('img', { src: a.src, alt: a.name || '素材' }),
+      h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await assets.remove(a.id); renderAssetSide(); } }, '🗑')));
+  }
+}
+function initAssetSide() {
+  $('#assetSide').classList.toggle('collapsed', window.innerWidth < 860); // 手機預設收合
+  renderAssetSide();
 }
 
 // =============================================================
@@ -687,6 +716,7 @@ async function openProject(pr) {
   $('#editorTitle').textContent = pr.name + '（歷史）';
   showView('editor');
   closeModal();
+  initAssetSide();
   await editor.setDoc(state.doc);
   buildFillForm();
   renderPageStrip();

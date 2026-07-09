@@ -153,14 +153,9 @@ export const BUILTIN_TEMPLATES = [
       // 疊加圖層 Overlay（材質／光暈，預設加亮）
       I({ id: 'overlay', role: 'overlay', label: '疊加圖層 Overlay', x: 540, y: 675, w: 1080, h: 1350,
           fit: 'cover', blendMode: 'screen', opacity: 0.6, hint: '疊加材質／光暈圖層（顆粒、霓虹、漸層等）' }),
-      // 固定版型：你的 SVG（外框＋兔子 LOGO＋FOLLOW US＋H&R）
+      // 固定版型：你的 SVG（外框＋兔子 LOGO＋VAL NEWS＋FOLLOW US＋H&R，全出血）
       I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
           x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: VAL_FRAME }),
-      // 分類標籤（可改文字與顏色，保留原本紅膠囊+陰影的樣子）
-      S({ id: 'catBox', label: '分類標籤底色', editable: true, x: 540, y: 224, w: 168, h: 40, radius: 20,
-          fill: '#ff1438', opacity: 1, shadow: { on: true, angle: 90, distance: 3, blur: 7, color: '#000000', opacity: 0.5 } }),
-      T({ id: 'catText', label: '分類標籤文字', text: 'VAL NEWS', x: 540, y: 224, boxWidth: 260,
-          font: 'Oswald', weight: 700, size: 22, color: '#ffffff', letterSpacing: 4, uppercase: true }),
       // 主標題上方小圖 / LOGO（例如隊伍、遊戲小標，可上傳/替換）
       I({ id: 'titleIcon', label: '主標題上方小圖 / LOGO', x: 540, y: 935, w: 120, h: 120,
           fit: 'contain', hint: '主標題上方的小圖或 LOGO（去背 PNG / SVG，可留空）' }),
@@ -237,14 +232,9 @@ export const BUILTIN_TEMPLATES = [
       ...bgTrio(1080, 1350, { color: '#000000', topSize: 0.18, topOp: 0.7, botSize: 0.42, botOp: 0.88 }),
       I({ id: 'overlay', role: 'overlay', label: '疊加圖層 Overlay', x: 540, y: 675, w: 1080, h: 1350,
           fit: 'cover', blendMode: 'screen', opacity: 0.5, hint: '疊加材質／光暈（可留空）' }),
-      // 固定版型：你的 MC SVG（細外框＋兔子 LOGO＋FOLLOW US＋H&R）
+      // 固定版型：你的 MC SVG（細外框＋兔子 LOGO＋MINECRAFT NEWS＋FOLLOW US＋H&R，全出血）
       I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
           x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: MC_FRAME }),
-      // 分類標籤（可改文字與顏色，保留原本灰色標籤+陰影的樣子）
-      S({ id: 'catBox', label: '分類標籤底色', editable: true, x: 540, y: 241, w: 210, h: 46, radius: 6,
-          fill: '#cccccc', opacity: 1, shadow: { on: true, angle: 90, distance: 3, blur: 6, color: '#000000', opacity: 0.45 } }),
-      T({ id: 'catText', label: '分類標籤文字', text: 'MINECRAFT NEWS', x: 540, y: 241, boxWidth: 300,
-          font: 'Minecraft Ten', weight: 400, size: 18, color: '#1a1a1a', letterSpacing: 1 }),
       // 主標題上方遊戲 LOGO（例如 MINECRAFT 字標，可上傳/替換）
       I({ id: 'titleIcon', label: '遊戲 LOGO（主標題上方）', x: 540, y: 940, w: 420, h: 120,
           fit: 'contain', hint: '上傳 MINECRAFT 或其他遊戲字標（去背 PNG，可留空）' }),
