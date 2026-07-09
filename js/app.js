@@ -268,6 +268,14 @@ function fieldGroup(el, isFixed = false) {
     g.append(h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調位置 / 大小 / 字型'));
     return g;
   }
+  if (el.type === 'shape') {
+    // 例如分類標籤底色膠囊：只需改顏色（大小/位置到微調調）
+    return h('div', { class: 'group' },
+      h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, isFixed ? '固定' : '色塊')),
+      h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '顏色'),
+        h('input', { type: 'color', value: el.fill, oninput: (e) => editor.update(el.id, { fill: e.target.value }) })),
+      h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調大小 / 位置'));
+  }
   // image
   const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, isFixed ? '固定' : '圖片')));
   if (el.hint) g.append(h('div', { class: 'hint-line' }, el.hint));

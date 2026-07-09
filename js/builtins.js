@@ -142,6 +142,11 @@ export const BUILTIN_TEMPLATES = [
       // 固定版型：你的 SVG（外框＋兔子 LOGO＋VAL NEWS＋FOLLOW US＋H&R）
       I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
           x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: VAL_FRAME }),
+      // 分類標籤（可改文字與顏色）：膠囊底色 + 文字
+      S({ id: 'catBox', label: '分類標籤底色', editable: true, x: 540, y: 224, w: 180, h: 46, radius: 23,
+          fill: '#ff1438', opacity: 1 }),
+      T({ id: 'catText', label: '分類標籤文字', text: 'VAL NEWS', x: 540, y: 224, boxWidth: 260,
+          font: 'Oswald', weight: 700, size: 24, color: '#ffffff', letterSpacing: 4, uppercase: true }),
       // 主標題上方小圖 / LOGO（例如隊伍、遊戲小標，可上傳/替換）
       I({ id: 'titleIcon', label: '主標題上方小圖 / LOGO', x: 540, y: 935, w: 120, h: 120,
           fit: 'contain', hint: '主標題上方的小圖或 LOGO（去背 PNG / SVG，可留空）' }),
@@ -219,9 +224,14 @@ export const BUILTIN_TEMPLATES = [
           fit: 'cover', blendMode: 'screen', opacity: 0.5, hint: '疊加材質／光暈（可留空）' }),
       // 下漸層遮罩：讓底部標題在照片上看得清楚
       G({ id: 'gradBottom', edge: 'bottom', label: '下漸層遮罩', color: '#000000', size: 0.42, opacity: 0.85 }),
-      // 固定版型：你的 MC SVG（細外框＋兔子 LOGO＋MINECRAFT NEWS＋FOLLOW US＋H&R）
+      // 固定版型：你的 MC SVG（細外框＋兔子 LOGO＋FOLLOW US＋H&R）
       I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
           x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: MC_FRAME }),
+      // 分類標籤（可改文字與顏色）：膠囊底色 + 文字
+      S({ id: 'catBox', label: '分類標籤底色', editable: true, x: 540, y: 241, w: 232, h: 50, radius: 8,
+          fill: '#cccccc', opacity: 1 }),
+      T({ id: 'catText', label: '分類標籤文字', text: 'MINECRAFT NEWS', x: 540, y: 241, boxWidth: 320,
+          font: 'Minecraft Ten', weight: 400, size: 20, color: '#1a1a1a', letterSpacing: 1 }),
       // 主標題上方遊戲 LOGO（例如 MINECRAFT 字標，可上傳/替換）
       I({ id: 'titleIcon', label: '遊戲 LOGO（主標題上方）', x: 540, y: 940, w: 420, h: 120,
           fit: 'contain', hint: '上傳 MINECRAFT 或其他遊戲字標（去背 PNG，可留空）' }),
