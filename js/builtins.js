@@ -34,6 +34,7 @@ function T(o = {}) {
     letterSpacing: o.letterSpacing ?? 0,
     uppercase: !!o.uppercase,
     stroke: o.stroke || null, // { color, width }
+    shadow: o.shadow || null, // { angle, distance, blur, color, opacity }
     opacity: o.opacity ?? 1,
   };
 }
@@ -58,6 +59,7 @@ function I(o = {}) {
     radius: o.radius ?? 0,
     opacity: o.opacity ?? 1,
     blendMode: o.blendMode || 'source-over', // 混合模式（canvas globalCompositeOperation）
+    shadow: o.shadow || null,
     hint: o.hint || '',
   };
 }
@@ -79,6 +81,7 @@ function S(o = {}) {
     noFill: !!o.noFill, // 只描邊、不填色（做外框用）
     opacity: o.opacity ?? 0.45,
     stroke: o.stroke || null, // { color, width }
+    shadow: o.shadow || null,
   };
 }
 
@@ -96,6 +99,18 @@ function G(o = {}) {
     size: o.size ?? 0.4, // 佔畫面高度的比例 0~1
     opacity: o.opacity ?? 0.85, // 邊緣最濃處的不透明度
   };
+}
+
+// 每個模板都有的「底層」：最底的滿版背景圖 + 上下獨立漸層遮罩
+function bgTrio(w, h, o = {}) {
+  return [
+    I({ id: 'bg', role: 'background', isBackground: true, label: '背景圖片', x: w / 2, y: h / 2, w, h,
+        fit: 'cover', hint: '上傳背景照片（會鋪滿整張、固定在最底層）' }),
+    G({ id: 'gradTop', edge: 'top', label: '上漸層遮罩', color: o.color || '#000000',
+        size: o.topSize ?? 0.25, opacity: o.topOp ?? 0.8 }),
+    G({ id: 'gradBottom', edge: 'bottom', label: '下漸層遮罩', color: o.color || '#000000',
+        size: o.botSize ?? 0.42, opacity: o.botOp ?? 0.9 }),
+  ];
 }
 
 // 尺寸／比例預設
@@ -133,20 +148,19 @@ export const BUILTIN_TEMPLATES = [
     height: 1350,
     bgColor: '#0b0d12',
     elements: [
-      // 背景照片：放在中央視窗（外框上下的銀色橫條會蓋住邊緣）
-      I({ id: 'bg', role: 'background', isBackground: true, label: '背景圖片', x: 540, y: 675, w: 1080, h: 1350,
-          fit: 'cover', hint: '上傳主視覺照片（會放在中央視窗）' }),
+      // 最底：滿版背景照片 + 上下漸層遮罩
+      ...bgTrio(1080, 1350, { color: '#05070c', topSize: 0.22, topOp: 0.85, botSize: 0.5, botOp: 0.95 }),
       // 疊加圖層 Overlay（材質／光暈，預設加亮）
       I({ id: 'overlay', role: 'overlay', label: '疊加圖層 Overlay', x: 540, y: 675, w: 1080, h: 1350,
           fit: 'cover', blendMode: 'screen', opacity: 0.6, hint: '疊加材質／光暈圖層（顆粒、霓虹、漸層等）' }),
-      // 固定版型：你的 SVG（外框＋兔子 LOGO＋VAL NEWS＋FOLLOW US＋H&R）
+      // 固定版型：你的 SVG（外框＋兔子 LOGO＋FOLLOW US＋H&R）
       I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
           x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: VAL_FRAME }),
-      // 分類標籤（可改文字與顏色）：膠囊底色 + 文字
-      S({ id: 'catBox', label: '分類標籤底色', editable: true, x: 540, y: 224, w: 180, h: 46, radius: 23,
-          fill: '#ff1438', opacity: 1 }),
+      // 分類標籤（可改文字與顏色，保留原本紅膠囊+陰影的樣子）
+      S({ id: 'catBox', label: '分類標籤底色', editable: true, x: 540, y: 224, w: 168, h: 40, radius: 20,
+          fill: '#ff1438', opacity: 1, shadow: { on: true, angle: 90, distance: 3, blur: 7, color: '#000000', opacity: 0.5 } }),
       T({ id: 'catText', label: '分類標籤文字', text: 'VAL NEWS', x: 540, y: 224, boxWidth: 260,
-          font: 'Oswald', weight: 700, size: 24, color: '#ffffff', letterSpacing: 4, uppercase: true }),
+          font: 'Oswald', weight: 700, size: 22, color: '#ffffff', letterSpacing: 4, uppercase: true }),
       // 主標題上方小圖 / LOGO（例如隊伍、遊戲小標，可上傳/替換）
       I({ id: 'titleIcon', label: '主標題上方小圖 / LOGO', x: 540, y: 935, w: 120, h: 120,
           fit: 'contain', hint: '主標題上方的小圖或 LOGO（去背 PNG / SVG，可留空）' }),
@@ -170,6 +184,7 @@ export const BUILTIN_TEMPLATES = [
     height: 1080,
     bgColor: '#0f1923',
     elements: [
+      ...bgTrio(1080, 1080, { topOp: 0.5, botOp: 0.6 }),
       T({ id: 'tag', label: '頂部標籤', text: 'VALORANT UPDATE', x: 540, y: 150,
           font: 'Teko', weight: 700, size: 46, color: '#ff4655', letterSpacing: 8, uppercase: true }),
       I({ id: 'logo', label: 'VALORANT LOGO', x: 540, y: 380, w: 460, h: 180,
@@ -193,6 +208,7 @@ export const BUILTIN_TEMPLATES = [
     height: 1080,
     bgColor: '#12121a',
     elements: [
+      ...bgTrio(1080, 1080, { topOp: 0.5, botOp: 0.6 }),
       T({ id: 'title', label: '主標題', text: '遊戲新聞', x: 540, y: 190,
           font: 'Noto Sans TC', weight: 900, size: 92, color: '#ffffff' }),
       T({ id: 'kicker', label: '英文小標', text: 'GAME NEWS / COLLAB', x: 540, y: 288,
@@ -217,21 +233,18 @@ export const BUILTIN_TEMPLATES = [
     height: 1350,
     bgColor: '#0b0d12',
     elements: [
-      // 背景照片：全出血（外框只有細邊＋LOGO 浮在照片上）
-      I({ id: 'bg', role: 'background', isBackground: true, label: '背景圖片', x: 540, y: 675, w: 1080, h: 1350,
-          fit: 'cover', hint: '上傳 Minecraft 截圖，會鋪滿整張' }),
+      // 最底：滿版背景照片（全出血）+ 上下漸層遮罩
+      ...bgTrio(1080, 1350, { color: '#000000', topSize: 0.18, topOp: 0.7, botSize: 0.42, botOp: 0.88 }),
       I({ id: 'overlay', role: 'overlay', label: '疊加圖層 Overlay', x: 540, y: 675, w: 1080, h: 1350,
           fit: 'cover', blendMode: 'screen', opacity: 0.5, hint: '疊加材質／光暈（可留空）' }),
-      // 下漸層遮罩：讓底部標題在照片上看得清楚
-      G({ id: 'gradBottom', edge: 'bottom', label: '下漸層遮罩', color: '#000000', size: 0.42, opacity: 0.85 }),
       // 固定版型：你的 MC SVG（細外框＋兔子 LOGO＋FOLLOW US＋H&R）
       I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
           x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: MC_FRAME }),
-      // 分類標籤（可改文字與顏色）：膠囊底色 + 文字
-      S({ id: 'catBox', label: '分類標籤底色', editable: true, x: 540, y: 241, w: 232, h: 50, radius: 8,
-          fill: '#cccccc', opacity: 1 }),
-      T({ id: 'catText', label: '分類標籤文字', text: 'MINECRAFT NEWS', x: 540, y: 241, boxWidth: 320,
-          font: 'Minecraft Ten', weight: 400, size: 20, color: '#1a1a1a', letterSpacing: 1 }),
+      // 分類標籤（可改文字與顏色，保留原本灰色標籤+陰影的樣子）
+      S({ id: 'catBox', label: '分類標籤底色', editable: true, x: 540, y: 241, w: 210, h: 46, radius: 6,
+          fill: '#cccccc', opacity: 1, shadow: { on: true, angle: 90, distance: 3, blur: 6, color: '#000000', opacity: 0.45 } }),
+      T({ id: 'catText', label: '分類標籤文字', text: 'MINECRAFT NEWS', x: 540, y: 241, boxWidth: 300,
+          font: 'Minecraft Ten', weight: 400, size: 18, color: '#1a1a1a', letterSpacing: 1 }),
       // 主標題上方遊戲 LOGO（例如 MINECRAFT 字標，可上傳/替換）
       I({ id: 'titleIcon', label: '遊戲 LOGO（主標題上方）', x: 540, y: 940, w: 420, h: 120,
           fit: 'contain', hint: '上傳 MINECRAFT 或其他遊戲字標（去背 PNG，可留空）' }),
@@ -255,6 +268,7 @@ export const BUILTIN_TEMPLATES = [
     height: 1080,
     bgColor: '#0f1923',
     elements: [
+      ...bgTrio(1080, 1080, { topOp: 0.5, botOp: 0.6 }),
       T({ id: 'tag', label: '調整標籤（NERF／BUFF）', text: 'NERF', x: 270, y: 200,
           font: 'Oswald', weight: 700, size: 60, color: '#ff4655', letterSpacing: 4, uppercase: true }),
       I({ id: 'hero', label: '英雄 LOGO（例：CLOVE）', x: 275, y: 590, w: 400, h: 400, fit: 'contain',

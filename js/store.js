@@ -6,7 +6,7 @@ import { downloadText, deepClone } from './util.js';
 
 const KEY = 'hrnews.templates.v2';
 const SEED_KEY = 'hrnews.seedVer';
-const SEED_VER = '4'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
+const SEED_VER = '5'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
 
 function read() {
   try {

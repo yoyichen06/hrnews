@@ -34,6 +34,23 @@ function tokenize(s) {
   return out;
 }
 
+// 依 shadow 設定套用 canvas 陰影（angle 角度、distance 距離、blur 模糊、color/opacity）。
+function applyShadow(ctx, sh, f) {
+  if (!sh || !sh.on) return false;
+  const rad = ((sh.angle ?? 135) * Math.PI) / 180;
+  ctx.shadowColor = hexToRgba(sh.color || '#000000', sh.opacity ?? 0.5);
+  ctx.shadowBlur = (sh.blur ?? 8) * f;
+  ctx.shadowOffsetX = Math.cos(rad) * (sh.distance ?? 8) * f;
+  ctx.shadowOffsetY = Math.sin(rad) * (sh.distance ?? 8) * f;
+  return true;
+}
+function clearShadow(ctx) {
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+}
+
 export class Editor {
   constructor(board, overlay) {
     this.board = board;
@@ -131,29 +148,37 @@ export class Editor {
     ctx.globalAlpha = el.opacity ?? 1;
     ctx.font = fontString({ ...el, size: el.size * f });
     ctx.textBaseline = 'top';
-    ctx.fillStyle = el.color;
-    if (el.stroke) {
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = el.stroke.color;
-      ctx.lineWidth = (el.stroke.width || 4) * f;
-    }
     const boxLeft = (el.x - el.boxWidth / 2) * f;
     const boxRight = (el.x + el.boxWidth / 2) * f;
     const top = (el.y - L.blockH / 2) * f;
     const ls = L.ls * f;
-    L.lines.forEach((line, i) => {
+    const startX = (i) => {
       const lw = L.widths[i] * f;
-      let x;
-      if (el.align === 'left') x = boxLeft;
-      else if (el.align === 'right') x = boxRight - lw;
-      else x = el.x * f - lw / 2;
-      const y = top + i * L.lineStep * f;
-      for (const ch of line) {
-        if (el.stroke) ctx.strokeText(ch, x, y);
-        ctx.fillText(ch, x, y);
-        x += ctx.measureText(ch).width + ls;
-      }
-    });
+      if (el.align === 'left') return boxLeft;
+      if (el.align === 'right') return boxRight - lw;
+      return el.x * f - lw / 2;
+    };
+    const pass = (withStroke) => {
+      L.lines.forEach((line, i) => {
+        let x = startX(i);
+        const y = top + i * L.lineStep * f;
+        for (const ch of line) {
+          if (withStroke && el.stroke) ctx.strokeText(ch, x, y);
+          ctx.fillText(ch, x, y);
+          x += ctx.measureText(ch).width + ls;
+        }
+      });
+    };
+    // 陰影 pass（只畫填色投影，之後正式 pass 會覆蓋，確保單一乾淨陰影）
+    ctx.fillStyle = el.color;
+    if (applyShadow(ctx, el.shadow, f)) { pass(false); clearShadow(ctx); }
+    // 正式 pass：描邊 + 填色
+    if (el.stroke && el.stroke.width > 0) {
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = el.stroke.color;
+      ctx.lineWidth = el.stroke.width * f;
+    }
+    pass(true);
     ctx.restore();
   }
 
@@ -161,19 +186,27 @@ export class Editor {
     const img = el.src ? peekImage(el.src) : null;
     if (!img) return; // 空圖片框不畫在畫布上（下載乾淨、不會有殘影）
     const bx = (el.x - el.w / 2) * f, by = (el.y - el.h / 2) * f, bw = el.w * f, bh = el.h * f;
-    ctx.save();
-    ctx.globalAlpha = el.opacity ?? 1;
-    if (el.blendMode && el.blendMode !== 'source-over') ctx.globalCompositeOperation = el.blendMode;
-    // cover 一定裁切到框內；contain 只有設圓角時才裁切。
-    if (el.fit === 'cover' || el.radius) {
-      roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
-      ctx.clip();
-    }
     const scale = el.fit === 'cover'
       ? Math.max(bw / img.naturalWidth, bh / img.naturalHeight)
       : Math.min(bw / img.naturalWidth, bh / img.naturalHeight);
     const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
-    ctx.drawImage(img, el.x * f - dw / 2, el.y * f - dh / 2, dw, dh);
+    const ix = el.x * f - dw / 2, iy = el.y * f - dh / 2;
+    // 陰影：contain（去背圖/LOGO）用圖片本身投影；cover（照片）用框形投影。
+    if (el.shadow && el.shadow.on) {
+      ctx.save();
+      applyShadow(ctx, el.shadow, f);
+      if (el.fit === 'cover') { roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f); ctx.fillStyle = '#000'; ctx.fill(); }
+      else ctx.drawImage(img, ix, iy, dw, dh);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.globalAlpha = el.opacity ?? 1;
+    if (el.blendMode && el.blendMode !== 'source-over') ctx.globalCompositeOperation = el.blendMode;
+    if (el.fit === 'cover' || el.radius) {
+      roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
+      ctx.clip();
+    }
+    ctx.drawImage(img, ix, iy, dw, dh);
     ctx.restore();
   }
 
@@ -182,7 +215,9 @@ export class Editor {
     ctx.save();
     ctx.globalAlpha = el.opacity ?? 1;
     roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
+    const hadShadow = applyShadow(ctx, el.shadow, f);
     if (!el.noFill) { ctx.fillStyle = el.fill; ctx.fill(); }
+    if (hadShadow) clearShadow(ctx); // 避免描邊再疊一層陰影
     if (el.stroke) {
       ctx.strokeStyle = el.stroke.color;
       ctx.lineWidth = (el.stroke.width || 2) * f;

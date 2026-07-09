@@ -194,6 +194,29 @@ input[type="color"] { width: 42px; height: 34px; border: 1px solid var(--line); 
 .danger { color: #ff6b6b; border-color: #4a2630; }
 .danger:hover { background: #ff4655; color: #fff; border-color: #ff4655; }
 
+/* ---------- Modal (素材庫 / 歷史) ---------- */
+.modal-back {
+  position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 40;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.modal {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  width: 100%; max-width: 760px; max-height: 86vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.modal-head h3 { margin: 0; font-size: 16px; }
+.modal-head .head-actions { display: flex; gap: 8px; align-items: center; }
+.modal-body { padding: 16px; overflow-y: auto; }
+.modal-close { border: none; background: var(--panel-2); color: var(--text); width: 32px; height: 32px; border-radius: 8px; font-size: 18px; }
+.asset-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+.asset-card { position: relative; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #0f1219; cursor: pointer; }
+.asset-card img { width: 100%; aspect-ratio: 1/1; object-fit: contain; display: block; background: #0f1219; }
+.asset-card .aname { font-size: 11px; color: var(--muted); padding: 5px 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asset-card .adel { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border: none; border-radius: 7px; background: rgba(0,0,0,.65); color: #fff; }
+.asset-card .adel:hover { background: var(--accent-2); }
+.asset-card.pickable:hover { border-color: var(--accent); }
+.modal-empty { color: var(--muted); text-align: center; padding: 40px 0; }
+
 /* ---------- Toast ---------- */
 .toast {
   position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
