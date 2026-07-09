@@ -150,12 +150,12 @@ export const BUILTIN_TEMPLATES = [
       // 可改文字與顏色的分類小字
       T({ id: 'tag', label: 'VAL NEWS 小字', text: 'VAL NEWS', x: 540, y: 216,
           font: 'Oswald', weight: 700, size: 30, color: '#ff4655', letterSpacing: 6, uppercase: true }),
+      // 主標題上方小圖 / LOGO（可上傳、可移動、可縮放、可替換）
+      I({ id: 'titleIcon', label: '主標題上方小圖 / LOGO', x: 540, y: 1010, w: 110, h: 110,
+          fit: 'contain', hint: '上傳主標題上方的小圖示或 LOGO（去背 PNG / SVG 皆可）' }),
       // 主標題（大字、置底）
-      T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1120, boxWidth: 980,
-          font: 'Noto Sans TC', weight: 900, size: 92, color: '#ffffff', lineHeight: 1.1 }),
-      // 副標題
-      T({ id: 'subtitle', label: '副標題', text: '副標題補充說明', x: 540, y: 1210, boxWidth: 940,
-          font: 'Noto Sans TC', weight: 500, size: 40, color: '#c9d1d9' }),
+      T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1160, boxWidth: 980,
+          font: 'Noto Sans TC', weight: 900, size: 96, color: '#ffffff', lineHeight: 1.1 }),
       // 固定：底部帳號（可解鎖後修改）
       T({ id: 'follow', label: 'FOLLOW US（固定）', fixed: true, text: 'FOLLOW US ・ @HR_NEWSTW', x: 540, y: 1300,
           font: 'Oswald', weight: 500, size: 26, color: '#9fb0c3', letterSpacing: 4, uppercase: true }),

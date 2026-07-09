@@ -469,18 +469,27 @@ export class Editor {
     this.render();
   }
   // 改變畫布尺寸／比例。滿版元素（背景/疊加/外框/漸層）跟著填滿，其餘依比例平移避免跑出畫面。
-  async setSize(w, h) {
-    const d = this.doc;
-    const sx = w / d.width, sy = h / d.height;
-    for (const el of d.elements) {
+  static reflow(doc, w, h) {
+    const sx = w / doc.width, sy = h / doc.height;
+    for (const el of doc.elements) {
       const fullBleed = el.isBackground || el.role === 'background' || el.role === 'overlay';
       if (el.type === 'gradient') continue; // 漸層以比例計算，免處理
       if (fullBleed) { el.x = w / 2; el.y = h / 2; el.w = w; el.h = h; }
       else { el.x = Math.round(el.x * sx); el.y = Math.round(el.y * sy); }
       if (el.role === 'frame' && el.type === 'shape') { el.w = w - 48; el.h = h - 48; }
     }
-    d.width = w; d.height = h;
-    await this.setDoc(d);
+    doc.width = w; doc.height = h;
+  }
+  async setSize(w, h) {
+    Editor.reflow(this.doc, w, h);
+    await this.setDoc(this.doc);
+  }
+
+  // 匯出任一份 doc（不動到目前正在編輯的畫布），給「下載全部頁」用。
+  static async exportDoc(doc, type = 'image/png', scale = 2, quality = 0.95) {
+    const ed = new Editor(document.createElement('canvas'), document.createElement('canvas'));
+    await ed.setDoc(doc);
+    return ed.exportImage(type, scale, quality);
   }
 
   // 匯出圖片。type: 'image/png' | 'image/jpeg'

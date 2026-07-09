@@ -1,3 +1,17 @@
+/* 使用者上傳的字型 */
+@font-face {
+  font-family: 'Minecraft Ten';
+  src: url('../fonts/minecraft-ten.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Foundry Gridnik';
+  src: url('../fonts/foundry-gridnik-extrabold.ttf') format('truetype');
+  font-weight: 800;
+  font-display: swap;
+}
+
 :root {
   --bg: #0b0d12;
   --panel: #14171f;
@@ -111,6 +125,21 @@ hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
 #overlay { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #overlay:active { cursor: grabbing; }
 .stage-hint { color: var(--muted); font-size: 12px; text-align: center; margin-top: 10px; }
+
+/* 多頁 / 輪播 */
+.page-bar { max-width: 560px; margin: 14px auto 0; }
+.page-bar-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.page-bar-title { font-weight: 800; font-size: 13px; }
+.page-add { display: flex; gap: 6px; align-items: center; }
+.page-add input { width: 58px; background: var(--panel-2); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 7px; font-size: 14px; text-align: center; }
+.page-strip { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; }
+.page-thumb { position: relative; flex: 0 0 auto; width: 62px; cursor: pointer; }
+.page-thumb img { width: 62px; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; border: 2px solid var(--line); background: #0f1219; display: block; }
+.page-thumb.active img { border-color: var(--accent); }
+.page-thumb .pnum { position: absolute; left: 4px; top: 3px; font-size: 10px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px #000; }
+.page-thumb .pdel { position: absolute; right: 2px; top: 2px; width: 18px; height: 18px; border: none; border-radius: 6px; background: rgba(0,0,0,.65); color: #fff; font-size: 12px; line-height: 1; display: none; }
+.page-thumb:hover .pdel { display: block; }
+.page-thumb .pdel:hover { background: var(--accent-2); }
 
 .panel {
   width: 360px; flex-shrink: 0; background: var(--panel);

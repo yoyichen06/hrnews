@@ -46,7 +46,8 @@ function slider(label, value, min, max, step, cb, fmt = (v) => v) {
 }
 
 // ---------- 狀態 ----------
-const state = { mode: 'post', doc: null, filter: '全部', editingCustomId: null, syncProps: null };
+// pages：多頁（輪播）用；state.doc 永遠指向目前這一頁。
+const state = { mode: 'post', doc: null, pages: [], pageIndex: 0, filter: '全部', editingCustomId: null, syncProps: null };
 let editor;
 let imgCb = null;
 
@@ -83,15 +84,13 @@ async function renderGallery() {
   for (const tpl of list) {
     const img = h('img', { class: 'thumb', alt: tpl.name });
     Editor.renderThumb(deepClone(tpl)).then((src) => (img.src = src)).catch(() => {});
-    const actions = tpl.custom
-      ? h('div', { class: 'card-actions' },
-          h('button', { class: 'icon-btn', title: '編輯模板', onclick: (e) => { e.stopPropagation(); openBuilder(tpl); } }, '✎'),
-          h('button', { class: 'icon-btn', title: '刪除模板', onclick: (e) => { e.stopPropagation(); if (confirm(`刪除模板「${tpl.name}」？`)) { store.remove(tpl.id); renderGallery(); } } }, '🗑'))
-      : h('div', { class: 'card-actions' },
-          h('button', { class: 'icon-btn', title: '複製為自製模板（可編輯 / 刪除）', onclick: (e) => { e.stopPropagation(); duplicateToCustom(tpl); } }, '⧉'));
+    // 所有模板（含預設）都可編輯 / 複製 / 刪除
+    const actions = h('div', { class: 'card-actions' },
+      h('button', { class: 'icon-btn', title: '編輯模板', onclick: (e) => { e.stopPropagation(); openBuilder(tpl); } }, '✎'),
+      h('button', { class: 'icon-btn', title: '複製一份', onclick: (e) => { e.stopPropagation(); duplicateToCustom(tpl); } }, '⧉'),
+      h('button', { class: 'icon-btn', title: '刪除模板', onclick: (e) => { e.stopPropagation(); if (confirm(`刪除模板「${tpl.name}」？`)) { store.remove(tpl.id); renderGallery(); } } }, '🗑'));
     grid.append(h('div', { class: 'card', onclick: () => openPost(tpl) },
       img,
-      tpl.custom ? h('span', { class: 'tag-custom' }, '自製') : null,
       actions,
       h('div', { class: 'meta' }, h('div', { class: 'name' }, tpl.name), h('div', { class: 'cat' }, tpl.category || '未分類'))));
   }
@@ -121,12 +120,16 @@ function showView(id) {
 async function openPost(tpl) {
   state.mode = 'post';
   state.editingCustomId = null;
-  state.doc = instantiate(tpl);
+  state.pages = [instantiate(tpl)];
+  state.pageIndex = 0;
+  state.doc = state.pages[0];
   $('#builderTools').classList.add('hidden');
+  $('#pageBar').classList.remove('hidden'); // 多頁只在套版產文時出現
   $('#editorTitle').textContent = tpl.name;
   showView('editor');
   await editor.setDoc(state.doc);
   buildFillForm();
+  renderPageStrip();
   activateTab('fill');
 }
 
@@ -134,8 +137,12 @@ async function openBuilder(tpl) {
   state.mode = 'build';
   const doc = tpl ? deepClone(tpl) : newBlankTemplate();
   state.editingCustomId = tpl ? tpl.id : null;
+  state.pages = [doc];
+  state.pageIndex = 0;
   state.doc = doc;
   $('#builderTools').classList.remove('hidden');
+  $('#pageBar').classList.add('hidden'); // 編輯模板本身不分頁
+  $('#downloadAllBtn').classList.add('hidden');
   $('#tplName').value = doc.name;
   $('#tplCategory').value = doc.category;
   $('#tplSize').value = `${doc.width}x${doc.height}`;
@@ -146,6 +153,54 @@ async function openBuilder(tpl) {
   buildFillForm();
   activateTab('fill');
 }
+
+// =============================================================
+//  多頁 / 輪播
+// =============================================================
+async function gotoPage(i) {
+  if (i < 0 || i >= state.pages.length) return;
+  state.pageIndex = i;
+  state.doc = state.pages[i];
+  await editor.setDoc(state.doc);
+  buildFillForm();
+  buildProps(null);
+  activateTab('fill');
+  renderPageStrip();
+}
+function addPages(n) {
+  const src = state.pages[state.pageIndex];
+  const copies = [];
+  for (let k = 0; k < n; k++) copies.push(deepClone(src)); // 複製目前頁，保留外框/LOGO，只需改內容
+  state.pages.splice(state.pageIndex + 1, 0, ...copies);
+  gotoPage(state.pageIndex + 1);
+}
+function deletePage(i) {
+  if (state.pages.length <= 1) return toast('至少要有一頁');
+  state.pages.splice(i, 1);
+  state.pageIndex = Math.min(state.pageIndex, state.pages.length - 1);
+  gotoPage(state.pageIndex);
+}
+function renderPageStrip() {
+  const bar = $('#pageBar');
+  if (state.mode !== 'post') { bar.classList.add('hidden'); return; }
+  bar.classList.remove('hidden');
+  $('#downloadAllBtn').classList.toggle('hidden', state.pages.length < 2);
+  $('#downloadBtn').textContent = state.pages.length > 1 ? '下載這頁' : '下載';
+  const strip = $('#pageStrip');
+  strip.innerHTML = '';
+  state.pages.forEach((pg, i) => {
+    const img = h('img', { alt: `第 ${i + 1} 頁` });
+    Editor.renderThumb(deepClone(pg), 140).then((s) => (img.src = s)).catch(() => {});
+    strip.append(h('div', { class: 'page-thumb' + (i === state.pageIndex ? ' active' : ''), onclick: () => gotoPage(i) },
+      img,
+      h('span', { class: 'pnum' }, i + 1),
+      h('button', { class: 'pdel', title: '刪除此頁', onclick: (e) => { e.stopPropagation(); deletePage(i); } }, '×')));
+  });
+}
+$('#addPagesBtn').addEventListener('click', () => {
+  const n = clamp(parseInt($('#pageCount').value, 10) || 1, 1, 20);
+  addPages(n);
+});
 
 function refreshCatList() {
   const dl = $('#catList');
@@ -259,11 +314,13 @@ function buildBackgroundGroup(bgEl, ovEl, grads) {
   return g;
 }
 
-// 改變比例 / 尺寸
+// 改變比例 / 尺寸（多頁時所有頁一起套用，保持輪播尺寸一致）
 async function applyRatio(value) {
   const [w, hh] = value.split('x').map(Number);
+  for (const pg of state.pages) if (pg !== state.doc) Editor.reflow(pg, w, hh);
   await editor.setSize(w, hh);
   buildFillForm();
+  renderPageStrip();
 }
 
 // =============================================================
@@ -425,15 +482,30 @@ $('#saveTplBtn').addEventListener('click', () => {
 // =============================================================
 $('#backBtn').addEventListener('click', () => { showView('gallery'); renderGallery(); });
 $('#downloadBtn').addEventListener('click', async () => {
-  const type = $('#dlFormat').value; // image/png | image/jpeg
+  const type = $('#dlFormat').value;
   const ext = type === 'image/jpeg' ? 'jpg' : 'png';
   toast('產生高解析圖片中…');
   const url = await editor.exportImage(type, 2, 0.95);
-  // 檔名只保留 ASCII，避免部分瀏覽器對中文檔名直接丟成 "download"（連副檔名都掉）。
-  const base = (state.doc.name || '').replace(/[^\x20-\x7E]+/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'hrnews-post';
-  downloadDataURL(url, `${base}-${timeStamp()}.${ext}`);
+  const suffix = state.pages.length > 1 ? `-p${state.pageIndex + 1}` : '';
+  await downloadDataURL(url, `${asciiBase()}${suffix}-${timeStamp()}.${ext}`);
   toast('已下載 ✓');
 });
+$('#downloadAllBtn').addEventListener('click', async () => {
+  const type = $('#dlFormat').value;
+  const ext = type === 'image/jpeg' ? 'jpg' : 'png';
+  const stamp = timeStamp();
+  toast(`產生 ${state.pages.length} 張圖片中…`);
+  for (let i = 0; i < state.pages.length; i++) {
+    const url = await Editor.exportDoc(state.pages[i], type, 2, 0.95);
+    await downloadDataURL(url, `${asciiBase()}-p${i + 1}-${stamp}.${ext}`);
+    await new Promise((r) => setTimeout(r, 400)); // 間隔避免瀏覽器擋多檔下載
+  }
+  toast('已下載全部 ✓');
+});
+// 檔名只保留 ASCII，避免部分瀏覽器對中文檔名直接丟成 "download"（連副檔名都掉）。
+function asciiBase() {
+  return (state.doc.name || '').replace(/[^\x20-\x7E]+/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'hrnews-post';
+}
 function timeStamp() {
   const d = new Date(), p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
@@ -457,6 +529,11 @@ $('#fileSvg').addEventListener('change', async (e) => {
 $('#exportAllBtn').addEventListener('click', () => {
   if (store.custom().length === 0) return toast('目前沒有自製模板可匯出');
   store.exportAll();
+});
+$('#restoreBtn').addEventListener('click', () => {
+  const n = store.restoreDefaults();
+  toast(n ? `已還原 ${n} 個預設模板 ✓` : '預設模板都在，無需還原');
+  renderGallery();
 });
 $('#importBtn').addEventListener('click', () => $('#fileImport').click());
 $('#fileImport').addEventListener('change', (e) => {

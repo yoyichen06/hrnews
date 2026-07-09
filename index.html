@@ -27,6 +27,7 @@
     <div class="gallery-top">
       <div id="catFilter" class="chips"></div>
       <div class="gallery-actions">
+        <button id="restoreBtn" class="btn ghost" title="把被刪掉的預設模板加回來">還原預設</button>
         <button id="importSvgBtn" class="btn ghost">匯入 SVG 模板</button>
         <button id="newTemplateBtn" class="btn primary">＋ 自製模板</button>
       </div>
@@ -45,7 +46,8 @@
           <option value="image/png">PNG</option>
           <option value="image/jpeg">JPG</option>
         </select>
-        <button id="downloadBtn" class="btn primary">下載</button>
+        <button id="downloadBtn" class="btn primary">下載這頁</button>
+        <button id="downloadAllBtn" class="btn primary hidden">下載全部</button>
       </div>
     </div>
 
@@ -56,6 +58,17 @@
           <canvas id="overlay"></canvas>
         </div>
         <p class="stage-hint">在圖上可直接拖曳移動、四角控制點縮放（以中心點縮放）、手機可雙指縮放。</p>
+        <!-- 多頁 / 輪播 -->
+        <div id="pageBar" class="page-bar hidden">
+          <div class="page-bar-top">
+            <span class="page-bar-title">頁數（輪播）</span>
+            <div class="page-add">
+              <input id="pageCount" type="number" min="1" max="20" value="1" />
+              <button id="addPagesBtn" class="btn small">新增頁</button>
+            </div>
+          </div>
+          <div id="pageStrip" class="page-strip"></div>
+        </div>
       </div>
 
       <aside class="panel">
