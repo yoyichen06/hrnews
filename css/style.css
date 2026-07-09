@@ -52,6 +52,12 @@ hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
   display: flex; gap: 12px; align-items: center; justify-content: space-between;
   flex-wrap: wrap; margin-bottom: 16px;
 }
+.gallery-actions { display: flex; gap: 8px; align-items: center; }
+.download-group { display: flex; gap: 6px; align-items: center; }
+.download-group select {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line);
+  border-radius: 9px; padding: 8px 8px; font-size: 13px; font-weight: 700; font-family: inherit;
+}
 .chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .chip {
   border: 1px solid var(--line); background: var(--panel); color: var(--muted);
@@ -154,6 +160,8 @@ input[type="color"] { width: 42px; height: 34px; border: 1px solid var(--line); 
 .mini-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .thumb-preview { width: 100%; max-height: 120px; object-fit: contain; background: #0f1219; border-radius: 8px; border: 1px solid var(--line); }
 .hint-line { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.lock-toggle { font-size: 13px; font-weight: 700; cursor: pointer; gap: 10px; }
+.lock-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 .danger { color: #ff6b6b; border-color: #4a2630; }
 .danger:hover { background: #ff4655; color: #fff; border-color: #ff4655; }
 

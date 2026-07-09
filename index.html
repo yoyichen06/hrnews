@@ -26,7 +26,10 @@
   <main id="galleryView" class="view">
     <div class="gallery-top">
       <div id="catFilter" class="chips"></div>
-      <button id="newTemplateBtn" class="btn primary">＋ 自製模板</button>
+      <div class="gallery-actions">
+        <button id="importSvgBtn" class="btn ghost">匯入 SVG 模板</button>
+        <button id="newTemplateBtn" class="btn primary">＋ 自製模板</button>
+      </div>
     </div>
     <div id="gallery" class="gallery-grid"></div>
     <p class="empty-hint" id="emptyHint" hidden>這個分類還沒有模板，點「＋ 自製模板」建立一個吧。</p>
@@ -37,7 +40,13 @@
     <div class="editor-bar">
       <button id="backBtn" class="btn ghost">← 返回</button>
       <div id="editorTitle" class="editor-title"></div>
-      <button id="downloadBtn" class="btn primary">下載 PNG</button>
+      <div class="download-group">
+        <select id="dlFormat" title="下載格式">
+          <option value="image/png">PNG</option>
+          <option value="image/jpeg">JPG</option>
+        </select>
+        <button id="downloadBtn" class="btn primary">下載</button>
+      </div>
     </div>
 
     <div class="editor-body">
@@ -58,18 +67,15 @@
             <input id="tplCategory" type="text" list="catList" placeholder="例如：特戰英豪 / 遊戲新聞" />
             <datalist id="catList"></datalist>
           </label>
-          <label class="field"><span>尺寸</span>
-            <select id="tplSize">
-              <option value="1080x1080">方形 1080 × 1080</option>
-              <option value="1080x1350">直式 1080 × 1350</option>
-              <option value="1080x1920">限動 1080 × 1920</option>
-            </select>
+          <label class="field"><span>尺寸 / 比例</span>
+            <select id="tplSize"></select>
           </label>
           <div class="add-row">
             <button id="addBgBtn" class="btn small">上傳背景圖</button>
             <button id="addTextBtn" class="btn small">＋ 文字</button>
             <button id="addImageBtn" class="btn small">＋ 圖片框</button>
             <button id="addShapeBtn" class="btn small">＋ 色塊</button>
+            <button id="addGradBtn" class="btn small">＋ 漸層遮罩</button>
           </div>
           <button id="saveTplBtn" class="btn primary block">儲存模板</button>
           <hr />
@@ -87,6 +93,7 @@
 
   <input id="fileImage" type="file" accept="image/*" hidden />
   <input id="fileImport" type="file" accept="application/json,.json" hidden />
+  <input id="fileSvg" type="file" accept="image/svg+xml,.svg" hidden />
   <div id="toast" class="toast" hidden></div>
 
   <script type="module" src="./js/app.js"></script>

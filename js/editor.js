@@ -9,7 +9,7 @@
 // -----------------------------------------------------------------------------
 
 import { fontString, ensureFont, ensureDocFonts } from './fonts.js';
-import { loadImage, peekImage, clamp } from './util.js';
+import { loadImage, peekImage, clamp, hexToRgba } from './util.js';
 
 const HANDLE = 30; // 縮放控制點大小（doc 座標）
 const HIT_PAD = 34; // 控制點觸控容錯
@@ -42,6 +42,7 @@ export class Editor {
     this.octx = overlay.getContext('2d');
     this.doc = null;
     this.selectedId = null;
+    this.unlockFixed = false; // 是否解鎖固定元素（外框/LOGO/HR NEWS）
     this.onSelect = () => {};
     this.onChange = () => {};
     this.drag = null;
@@ -53,6 +54,7 @@ export class Editor {
   async setDoc(doc) {
     this.doc = doc;
     this.selectedId = null;
+    this.unlockFixed = false;
     for (const c of [this.board, this.overlay]) {
       c.width = doc.width;
       c.height = doc.height;
@@ -85,6 +87,7 @@ export class Editor {
       if (el.type === 'text') this.drawText(ctx, el, factor);
       else if (el.type === 'image') this.drawImage(ctx, el, factor);
       else if (el.type === 'shape') this.drawShape(ctx, el, factor);
+      else if (el.type === 'gradient') this.drawGradient(ctx, el, factor);
     }
     ctx.restore();
   }
@@ -160,6 +163,7 @@ export class Editor {
     const bx = (el.x - el.w / 2) * f, by = (el.y - el.h / 2) * f, bw = el.w * f, bh = el.h * f;
     ctx.save();
     ctx.globalAlpha = el.opacity ?? 1;
+    if (el.blendMode && el.blendMode !== 'source-over') ctx.globalCompositeOperation = el.blendMode;
     // cover 一定裁切到框內；contain 只有設圓角時才裁切。
     if (el.fit === 'cover' || el.radius) {
       roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
@@ -177,14 +181,32 @@ export class Editor {
     const bx = (el.x - el.w / 2) * f, by = (el.y - el.h / 2) * f, bw = el.w * f, bh = el.h * f;
     ctx.save();
     ctx.globalAlpha = el.opacity ?? 1;
-    ctx.fillStyle = el.fill;
     roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
-    ctx.fill();
+    if (!el.noFill) { ctx.fillStyle = el.fill; ctx.fill(); }
     if (el.stroke) {
-      ctx.globalAlpha = 1;
       ctx.strokeStyle = el.stroke.color;
       ctx.lineWidth = (el.stroke.width || 2) * f;
       ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 漸層遮罩：從上緣或下緣往內淡出。size = 佔畫面高度比例，opacity = 邊緣最濃處。
+  drawGradient(ctx, el, f) {
+    const W = this.doc.width * f, H = this.doc.height * f;
+    const band = clamp(el.size ?? 0.4, 0, 1) * H;
+    const strong = hexToRgba(el.color, el.opacity ?? 0.85);
+    const clear = hexToRgba(el.color, 0);
+    ctx.save();
+    let g;
+    if (el.edge === 'top') {
+      g = ctx.createLinearGradient(0, 0, 0, band);
+      g.addColorStop(0, strong); g.addColorStop(1, clear);
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, band);
+    } else {
+      g = ctx.createLinearGradient(0, H - band, 0, H);
+      g.addColorStop(0, clear); g.addColorStop(1, strong);
+      ctx.fillStyle = g; ctx.fillRect(0, H - band, W, band);
     }
     ctx.restore();
   }
@@ -198,9 +220,9 @@ export class Editor {
   renderOverlay() {
     const ctx = this.octx;
     ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
-    // 空圖片框：畫虛線提示框（只在操作層，不會被下載）
+    // 空圖片框：畫虛線提示框（只在操作層，不會被下載）。疊加圖層由面板管理，不畫框避免與背景重疊。
     for (const el of this.doc.elements || []) {
-      if (el.type === 'image' && !el.src) {
+      if (el.type === 'image' && !el.src && el.role !== 'overlay') {
         const b = this.bounds(el);
         ctx.save();
         ctx.setLineDash([12, 10]);
@@ -247,7 +269,17 @@ export class Editor {
       else left = el.x - L.blockW / 2;
       return { cx: left + L.blockW / 2, cy: el.y, w: L.blockW, h: L.blockH };
     }
+    if (el.type === 'gradient') {
+      const W = this.doc.width, H = this.doc.height;
+      const band = clamp(el.size ?? 0.4, 0, 1) * H;
+      return { cx: W / 2, cy: el.edge === 'top' ? band / 2 : H - band / 2, w: W, h: band };
+    }
     return { cx: el.x, cy: el.y, w: el.w, h: el.h };
+  }
+
+  // 固定元素在未解鎖時等同鎖定（不可點選、不進表單）。
+  isLocked(el) {
+    return el.locked || (el.fixed && !this.unlockFixed);
   }
 
   // ---------- 互動 ----------
@@ -273,7 +305,7 @@ export class Editor {
     const els = this.doc.elements || [];
     for (let i = els.length - 1; i >= 0; i--) {
       const el = els[i];
-      if (el.locked) continue;
+      if (this.isLocked(el)) continue;
       const b = this.bounds(el);
       if (Math.abs(p.x - b.cx) <= b.w / 2 + 6 && Math.abs(p.y - b.cy) <= b.h / 2 + 6) return el;
     }
@@ -394,7 +426,10 @@ export class Editor {
     if (!el) return;
     el.src = src;
     await loadImage(src);
-    if (!el.isBackground && w && h) el.h = Math.round(el.w * (h / w)); // 依原圖比例調整框高
+    // 只有「完整顯示(contain)的一般圖片框」才依原圖比例調整框高；滿版/疊加圖層維持原框。
+    if (el.fit === 'contain' && !el.isBackground && el.role !== 'overlay' && w && h) {
+      el.h = Math.round(el.w * (h / w));
+    }
     this.render();
     this.onChange();
   }
@@ -428,6 +463,35 @@ export class Editor {
     this.render();
     this.onChange();
   }
+  setUnlockFixed(on) {
+    this.unlockFixed = on;
+    if (!on && this.selected && this.selected.fixed) { this.selectedId = null; this.onSelect(null); }
+    this.render();
+  }
+  // 改變畫布尺寸／比例。滿版元素（背景/疊加/外框/漸層）跟著填滿，其餘依比例平移避免跑出畫面。
+  async setSize(w, h) {
+    const d = this.doc;
+    const sx = w / d.width, sy = h / d.height;
+    for (const el of d.elements) {
+      const fullBleed = el.isBackground || el.role === 'background' || el.role === 'overlay';
+      if (el.type === 'gradient') continue; // 漸層以比例計算，免處理
+      if (fullBleed) { el.x = w / 2; el.y = h / 2; el.w = w; el.h = h; }
+      else { el.x = Math.round(el.x * sx); el.y = Math.round(el.y * sy); }
+      if (el.role === 'frame' && el.type === 'shape') { el.w = w - 48; el.h = h - 48; }
+    }
+    d.width = w; d.height = h;
+    await this.setDoc(d);
+  }
+
+  // 匯出圖片。type: 'image/png' | 'image/jpeg'
+  async exportImage(type = 'image/png', scale = 2, quality = 0.95) {
+    await this.preload();
+    const off = document.createElement('canvas');
+    off.width = this.doc.width * scale;
+    off.height = this.doc.height * scale;
+    this.drawScene(off.getContext('2d'), scale);
+    return off.toDataURL(type, quality);
+  }
 
   // 產生模板縮圖（給模板一覽用）。
   static async renderThumb(doc, maxW = 360) {
@@ -440,14 +504,7 @@ export class Editor {
     return t.toDataURL('image/png');
   }
 
-  // 匯出高解析度 PNG（預設 2x = 2160px）。
-  // 字型量測用 this.ctx（board），繪製用離屏 canvas，factor=scale → 與預覽完全一致。
   async exportPNG(scale = 2) {
-    await this.preload();
-    const off = document.createElement('canvas');
-    off.width = this.doc.width * scale;
-    off.height = this.doc.height * scale;
-    this.drawScene(off.getContext('2d'), scale);
-    return off.toDataURL('image/png');
+    return this.exportImage('image/png', scale);
   }
 }

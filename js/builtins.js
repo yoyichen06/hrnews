@@ -19,6 +19,7 @@ function T(o = {}) {
     label: o.label || '文字',
     editable: o.editable !== false, // 是否出現在「快速填寫」表單
     locked: !!o.locked, // 鎖定後不可在畫布上被選取移動
+    fixed: !!o.fixed, // 固定元素（外框/LOGO/HR NEWS）：預設鎖定、不進表單，可解鎖後編輯
     text: o.text ?? '文字',
     x: o.x ?? 540,
     y: o.y ?? 540,
@@ -43,8 +44,10 @@ function I(o = {}) {
     label: o.label || '圖片',
     editable: o.editable !== false,
     locked: !!o.locked,
+    fixed: !!o.fixed,
     replaceable: o.replaceable !== false,
     isBackground: !!o.isBackground,
+    role: o.role || (o.isBackground ? 'background' : ''), // background / overlay / frame
     src: o.src || null,
     x: o.x ?? 540,
     y: o.y ?? 540,
@@ -53,6 +56,7 @@ function I(o = {}) {
     fit: o.fit || 'contain', // contain / cover
     radius: o.radius ?? 0,
     opacity: o.opacity ?? 1,
+    blendMode: o.blendMode || 'source-over', // 混合模式（canvas globalCompositeOperation）
     hint: o.hint || '',
   };
 }
@@ -64,19 +68,99 @@ function S(o = {}) {
     label: o.label || '形狀',
     editable: o.editable === true, // 形狀預設不進填寫表單
     locked: !!o.locked,
+    fixed: !!o.fixed,
     x: o.x ?? 540,
     y: o.y ?? 540,
     w: o.w ?? 600,
     h: o.h ?? 200,
     radius: o.radius ?? 24,
     fill: o.fill || '#000000',
+    noFill: !!o.noFill, // 只描邊、不填色（做外框用）
     opacity: o.opacity ?? 0.45,
-    stroke: o.stroke || null,
+    stroke: o.stroke || null, // { color, width }
   };
 }
 
+// 漸層遮罩（貼在上緣或下緣，可獨立調整高度與強度）
+function G(o = {}) {
+  return {
+    id: o.id || uid('el'),
+    type: 'gradient',
+    label: o.label || '漸層遮罩',
+    editable: o.editable === true,
+    locked: o.locked !== false, // 預設鎖定，用面板調整、不擋點選
+    fixed: !!o.fixed,
+    edge: o.edge || 'bottom', // top / bottom
+    color: o.color || '#000000',
+    size: o.size ?? 0.4, // 佔畫面高度的比例 0~1
+    opacity: o.opacity ?? 0.85, // 邊緣最濃處的不透明度
+  };
+}
+
+// 尺寸／比例預設
+export const SIZE_PRESETS = [
+  { label: '正方形 1:1', w: 1080, h: 1080 },
+  { label: '直式 4:5', w: 1080, h: 1350 },
+  { label: '限動 9:16', w: 1080, h: 1920 },
+  { label: '橫式 16:9', w: 1920, h: 1080 },
+  { label: '橫式 4:3', w: 1440, h: 1080 },
+  { label: '直式 3:4', w: 1080, h: 1440 },
+];
+
+// 混合模式（label -> canvas globalCompositeOperation）
+export const BLEND_MODES = [
+  { v: 'source-over', label: 'Normal 一般' },
+  { v: 'multiply', label: 'Multiply 正片疊底' },
+  { v: 'screen', label: 'Screen 加亮' },
+  { v: 'overlay', label: 'Overlay 疊加' },
+  { v: 'soft-light', label: 'Soft Light 柔光' },
+  { v: 'hard-light', label: 'Hard Light 實光' },
+  { v: 'color-dodge', label: 'Color Dodge 加亮顏色' },
+  { v: 'color-burn', label: 'Color Burn 加深顏色' },
+  { v: 'difference', label: 'Difference 差異化' },
+  { v: 'luminosity', label: 'Luminosity 明度' },
+];
+
 // ---- 內建模板 ----
 export const BUILTIN_TEMPLATES = [
+  {
+    id: 'valorant-news-hr',
+    name: '特戰英豪新聞（HR NEWS 版）',
+    category: '特戰英豪',
+    builtin: true,
+    width: 1080,
+    height: 1350,
+    bgColor: '#05070c',
+    elements: [
+      // 背景照片（可替換、可換混合模式）
+      I({ id: 'bg', role: 'background', isBackground: true, label: '背景圖片', x: 540, y: 675, w: 1080, h: 1350,
+          fit: 'cover', hint: '上傳主視覺照片，會鋪滿整個版面' }),
+      // 疊加圖層 Overlay（例如質感/光暈，預設加亮混合）
+      I({ id: 'overlay', role: 'overlay', label: '疊加圖層 Overlay', x: 540, y: 675, w: 1080, h: 1350,
+          fit: 'cover', blendMode: 'screen', opacity: 0.6, hint: '疊加材質／光暈圖層（顆粒、霓虹、漸層等）' }),
+      // 上下漸層遮罩（各自獨立）
+      G({ id: 'gradTop', edge: 'top', label: '上漸層遮罩', color: '#05070c', size: 0.28, opacity: 0.9 }),
+      G({ id: 'gradBottom', edge: 'bottom', label: '下漸層遮罩', color: '#05070c', size: 0.5, opacity: 0.95 }),
+      // 固定外框（白框）
+      S({ id: 'frame', label: '外框（固定）', fixed: true, x: 540, y: 675, w: 1032, h: 1302, radius: 6,
+          noFill: true, opacity: 1, stroke: { color: '#ffffff', width: 5 } }),
+      // 固定：兔子 LOGO（上傳一次後就固定，可解鎖替換）
+      I({ id: 'logo', role: 'frame', label: '兔子 LOGO（固定）', fixed: true, x: 540, y: 120, w: 150, h: 150,
+          fit: 'contain', hint: '上傳你的 HR NEWS 兔子 LOGO（去背 PNG）' }),
+      // 可改文字與顏色的分類小字
+      T({ id: 'tag', label: 'VAL NEWS 小字', text: 'VAL NEWS', x: 540, y: 216,
+          font: 'Oswald', weight: 700, size: 30, color: '#ff4655', letterSpacing: 6, uppercase: true }),
+      // 主標題（大字、置底）
+      T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1120, boxWidth: 980,
+          font: 'Noto Sans TC', weight: 900, size: 92, color: '#ffffff', lineHeight: 1.1 }),
+      // 副標題
+      T({ id: 'subtitle', label: '副標題', text: '副標題補充說明', x: 540, y: 1210, boxWidth: 940,
+          font: 'Noto Sans TC', weight: 500, size: 40, color: '#c9d1d9' }),
+      // 固定：底部帳號（可解鎖後修改）
+      T({ id: 'follow', label: 'FOLLOW US（固定）', fixed: true, text: 'FOLLOW US ・ @HR_NEWSTW', x: 540, y: 1300,
+          font: 'Oswald', weight: 500, size: 26, color: '#9fb0c3', letterSpacing: 4, uppercase: true }),
+    ],
+  },
   {
     id: 'valorant-news',
     name: '特戰英豪・快訊',
@@ -186,3 +270,4 @@ export function newBlankTemplate({ name = '我的模板', category = '自訂', w
 export const makeText = T;
 export const makeImage = I;
 export const makeShape = S;
+export const makeGradient = G;

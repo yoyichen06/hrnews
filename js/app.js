@@ -2,9 +2,11 @@
 
 import { Editor } from './editor.js';
 import { store } from './store.js';
-import { instantiate, newBlankTemplate, makeText, makeImage, makeShape } from './builtins.js';
+import { instantiate, newBlankTemplate, makeText, makeImage, makeShape, makeGradient,
+         SIZE_PRESETS, BLEND_MODES } from './builtins.js';
 import { FONTS } from './fonts.js';
-import { readImageFile, downloadDataURL, deepClone, clamp } from './util.js';
+import { importSVGFile } from './svg.js';
+import { readImageFile, downloadDataURL, deepClone, clamp, uid } from './util.js';
 
 // ---------- 迷你工具 ----------
 const $ = (s, r = document) => r.querySelector(s);
@@ -85,7 +87,8 @@ async function renderGallery() {
       ? h('div', { class: 'card-actions' },
           h('button', { class: 'icon-btn', title: '編輯模板', onclick: (e) => { e.stopPropagation(); openBuilder(tpl); } }, '✎'),
           h('button', { class: 'icon-btn', title: '刪除模板', onclick: (e) => { e.stopPropagation(); if (confirm(`刪除模板「${tpl.name}」？`)) { store.remove(tpl.id); renderGallery(); } } }, '🗑'))
-      : null;
+      : h('div', { class: 'card-actions' },
+          h('button', { class: 'icon-btn', title: '複製為自製模板（可編輯 / 刪除）', onclick: (e) => { e.stopPropagation(); duplicateToCustom(tpl); } }, '⧉'));
     grid.append(h('div', { class: 'card', onclick: () => openPost(tpl) },
       img,
       tpl.custom ? h('span', { class: 'tag-custom' }, '自製') : null,
@@ -97,6 +100,18 @@ async function renderGallery() {
 // =============================================================
 //  開啟編輯器
 // =============================================================
+// 複製內建模板為自製（之後可自由編輯 / 刪除）
+function duplicateToCustom(tpl) {
+  const copy = deepClone(tpl);
+  copy.id = uid('tpl');
+  copy.name = tpl.name + '（我的）';
+  copy.custom = true;
+  delete copy.builtin;
+  store.save(copy);
+  toast('已複製為自製模板 ✓');
+  renderGallery();
+}
+
 function showView(id) {
   $('#galleryView').classList.toggle('hidden', id !== 'gallery');
   $('#editorView').classList.toggle('hidden', id !== 'editor');
@@ -154,33 +169,102 @@ document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () 
 function buildFillForm() {
   const pane = $('#fillPanel');
   pane.innerHTML = '';
-  // 底色
-  pane.append(h('label', { class: 'prop' }, h('span', {}, '底色'),
-    h('input', { type: 'color', value: state.doc.bgColor || '#111318', oninput: (e) => editor.setBg(e.target.value) })));
+  const D = state.doc;
 
-  for (const el of state.doc.elements) {
-    if (el.editable === false) continue;
-    if (el.type === 'text') {
-      const ta = h('textarea', { rows: el.text.length > 18 ? 3 : 1, oninput: (e) => editor.update(el.id, { text: e.target.value }) });
-      ta.value = el.text;
-      pane.append(h('div', { class: 'group' },
-        h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, '文字')),
-        ta,
-        h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調位置 / 大小 / 字型')));
-    } else if (el.type === 'image') {
-      const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, '圖片')));
-      if (el.hint) g.append(h('div', { class: 'hint-line' }, el.hint));
-      if (el.src) g.append(h('img', { class: 'thumb-preview', src: el.src }));
-      g.append(h('div', { class: 'mini-actions' },
-        h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(el.id, d).then(refreshFillImage)) }, el.src ? '替換圖片' : '上傳圖片'),
-        el.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(el.id); refreshFillImage(); } }, '清除') : null,
-        h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調')));
-      pane.append(g);
-    }
+  // 比例 / 尺寸（隨時可改）
+  const ratioSel = h('select', { onchange: (e) => applyRatio(e.target.value) });
+  for (const p of SIZE_PRESETS) ratioSel.append(h('option', { value: `${p.w}x${p.h}`, ...(p.w === D.width && p.h === D.height ? { selected: true } : {}) }, p.label));
+  pane.append(h('div', { class: 'prop-row' },
+    h('label', { class: 'prop' }, h('span', {}, '比例 / 尺寸'), ratioSel),
+    h('label', { class: 'prop' }, h('span', {}, '底色'),
+      h('input', { type: 'color', value: D.bgColor || '#111318', oninput: (e) => editor.setBg(e.target.value) }))));
+
+  // 背景設定（有背景/疊加/漸層時才出現）
+  const bgEl = D.elements.find((e) => e.role === 'background');
+  const ovEl = D.elements.find((e) => e.role === 'overlay');
+  const grads = D.elements.filter((e) => e.type === 'gradient');
+  if (bgEl || ovEl || grads.length) pane.append(buildBackgroundGroup(bgEl, ovEl, grads));
+
+  // 一般可編輯欄位
+  for (const el of D.elements) {
+    if (el.editable === false || el.fixed || el.role === 'background' || el.role === 'overlay' || el.type === 'gradient') continue;
+    pane.append(fieldGroup(el));
+  }
+
+  // 固定元素（外框 / LOGO / HR NEWS）解鎖開關
+  const fixedEls = D.elements.filter((e) => e.fixed);
+  if (fixedEls.length) {
+    const chk = h('input', { type: 'checkbox', ...(editor.unlockFixed ? { checked: true } : {}), onchange: (e) => { editor.setUnlockFixed(e.target.checked); buildFillForm(); } });
+    pane.append(h('hr'), h('label', { class: 'inline lock-toggle' }, chk, h('span', {}, '編輯固定元素（外框 / LOGO / HR NEWS）')));
+    if (editor.unlockFixed) for (const el of fixedEls) pane.append(fieldGroup(el, true));
   }
 }
-// 圖片變更後重建表單（更新縮圖與按鈕文字）
-function refreshFillImage() { buildFillForm(); }
+
+// 單一欄位的填寫區塊
+function fieldGroup(el, isFixed = false) {
+  if (el.type === 'text') {
+    const ta = h('textarea', { rows: el.text.length > 18 ? 3 : 1, oninput: (e) => editor.update(el.id, { text: e.target.value }) });
+    ta.value = el.text;
+    const g = h('div', { class: 'group' },
+      h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, isFixed ? '固定' : '文字')), ta);
+    // 顏色（例如 VAL NEWS 小字）
+    g.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '顏色'),
+      h('input', { type: 'color', value: el.color, oninput: (e) => editor.update(el.id, { color: e.target.value }) })));
+    g.append(h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調位置 / 大小 / 字型'));
+    return g;
+  }
+  // image
+  const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, isFixed ? '固定' : '圖片')));
+  if (el.hint) g.append(h('div', { class: 'hint-line' }, el.hint));
+  if (el.src) g.append(h('img', { class: 'thumb-preview', src: el.src }));
+  g.append(h('div', { class: 'mini-actions' },
+    h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(el.id, d).then(buildFillForm)) }, el.src ? '替換圖片' : '上傳圖片'),
+    el.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(el.id); buildFillForm(); } }, '清除') : null,
+    h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調')));
+  return g;
+}
+
+// 背景設定：背景圖 + 疊加圖層(混合模式/不透明度) + 上下漸層遮罩
+function buildBackgroundGroup(bgEl, ovEl, grads) {
+  const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, '背景設定', h('span', { class: 'badge' }, '背景 / 疊加 / 遮罩')));
+
+  if (bgEl) {
+    g.append(h('div', { class: 'hint-line' }, '背景圖片'));
+    if (bgEl.src) g.append(h('img', { class: 'thumb-preview', src: bgEl.src }));
+    g.append(h('div', { class: 'mini-actions' },
+      h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(bgEl.id, d).then(buildFillForm)) }, bgEl.src ? '替換背景圖' : '上傳背景圖'),
+      bgEl.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(bgEl.id); buildFillForm(); } }, '清除') : null,
+      h('button', { class: 'btn small', onclick: () => { editor.select(bgEl.id); activateTab('props'); } }, '位置 / 縮放')));
+  }
+
+  if (ovEl) {
+    g.append(h('hr'), h('div', { class: 'hint-line' }, '疊加圖層 Overlay（材質 / 光暈）'));
+    if (ovEl.src) g.append(h('img', { class: 'thumb-preview', src: ovEl.src }));
+    g.append(h('div', { class: 'mini-actions' },
+      h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(ovEl.id, d).then(buildFillForm)) }, ovEl.src ? '替換 Overlay' : '上傳 Overlay 圖片'),
+      ovEl.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(ovEl.id); buildFillForm(); } }, '清除') : null));
+    const blend = h('select', { onchange: (e) => editor.update(ovEl.id, { blendMode: e.target.value }) });
+    for (const b of BLEND_MODES) blend.append(h('option', { value: b.v, ...(b.v === ovEl.blendMode ? { selected: true } : {}) }, b.label));
+    g.append(h('label', { class: 'prop' }, h('span', {}, '混合模式'), blend));
+    g.append(slider('不透明度', ovEl.opacity ?? 1, 0, 1, 0.05, (v) => editor.update(ovEl.id, { opacity: v }), (v) => Math.round(v * 100) + '%'));
+  }
+
+  for (const gr of grads) {
+    g.append(h('hr'), h('div', { class: 'hint-line' }, gr.label + '（' + (gr.edge === 'top' ? '上緣' : '下緣') + '）'));
+    g.append(slider('遮罩高度', gr.size ?? 0.4, 0, 1, 0.01, (v) => editor.update(gr.id, { size: v }), (v) => Math.round(v * 100) + '%'));
+    g.append(slider('遮罩強度', gr.opacity ?? 0.85, 0, 1, 0.05, (v) => editor.update(gr.id, { opacity: v }), (v) => Math.round(v * 100) + '%'));
+    g.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '遮罩顏色'),
+      h('input', { type: 'color', value: gr.color, oninput: (e) => editor.update(gr.id, { color: e.target.value }) })));
+  }
+  return g;
+}
+
+// 改變比例 / 尺寸
+async function applyRatio(value) {
+  const [w, hh] = value.split('x').map(Number);
+  await editor.setSize(w, hh);
+  buildFillForm();
+}
 
 // =============================================================
 //  微調面板（選取元素後顯示）
@@ -194,9 +278,22 @@ function buildProps(el) {
     return;
   }
   const D = state.doc;
-  const head = h('div', { class: 'g-label' }, el.label || el.type,
-    h('span', { class: 'badge' }, el.type === 'text' ? '文字' : el.type === 'image' ? '圖片' : '色塊'));
-  pane.append(head);
+  const badge = { text: '文字', image: '圖片', shape: '色塊', gradient: '漸層' }[el.type] || el.type;
+  pane.append(h('div', { class: 'g-label' }, el.label || el.type, h('span', { class: 'badge' }, badge)));
+
+  // 漸層遮罩：只需高度、強度、顏色（貼齊上/下緣）
+  if (el.type === 'gradient') {
+    pane.append(
+      h('label', { class: 'prop' }, h('span', {}, '貼齊'),
+        h('div', { class: 'seg' }, ...[['top', '上緣'], ['bottom', '下緣']].map(([e, t]) =>
+          h('button', { class: el.edge === e ? 'on' : '', onclick: (ev) => { editor.update(el.id, { edge: e }); [...ev.target.parentNode.children].forEach((b) => b.classList.remove('on')); ev.target.classList.add('on'); } }, t)))),
+      slider('遮罩高度', el.size ?? 0.4, 0, 1, 0.01, (v) => editor.update(el.id, { size: v }), (v) => Math.round(v * 100) + '%'),
+      slider('遮罩強度', el.opacity ?? 0.85, 0, 1, 0.05, (v) => editor.update(el.id, { opacity: v }), (v) => Math.round(v * 100) + '%'),
+      h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '遮罩顏色'),
+        h('input', { type: 'color', value: el.color, oninput: (e) => editor.update(el.id, { color: e.target.value }) })));
+    appendLayerControls(pane, el);
+    return;
+  }
 
   const posX = slider('水平位置 X', Math.round(el.x), 0, D.width, 1, (v) => editor.update(el.id, { x: v }));
   const posY = slider('垂直位置 Y', Math.round(el.y), 0, D.height, 1, (v) => editor.update(el.id, { y: v }));
@@ -241,11 +338,14 @@ function buildProps(el) {
     const radius = slider('圓角', el.radius || 0, 0, Math.round(Math.min(el.w, el.h) / 2), 1, (v) => editor.update(el.id, { radius: v }));
     const fit = h('div', { class: 'seg' }, ...[['contain', '完整顯示'], ['cover', '填滿裁切']].map(([f, t]) =>
       h('button', { class: el.fit === f ? 'on' : '', onclick: (e) => { editor.update(el.id, { fit: f }); [...e.target.parentNode.children].forEach((b) => b.classList.remove('on')); e.target.classList.add('on'); } }, t)));
+    const blend = h('select', { onchange: (e) => editor.update(el.id, { blendMode: e.target.value }) });
+    for (const b of BLEND_MODES) blend.append(h('option', { value: b.v, ...(b.v === (el.blendMode || 'source-over') ? { selected: true } : {}) }, b.label));
     pane.append(
       h('div', { class: 'mini-actions' },
         h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(el.id, d).then(() => { buildProps(editor.selected); buildFillForm(); })) }, el.src ? '替換圖片' : '上傳圖片'),
         el.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(el.id); buildProps(editor.selected); buildFillForm(); } }, '清除') : null),
       h('label', { class: 'prop' }, h('span', {}, '顯示方式'), fit),
+      h('label', { class: 'prop' }, h('span', {}, '混合模式'), blend),
       sizeS, radius, posX, posY, opacity,
     );
     state.syncProps = () => { setSlider(sizeS, Math.round(el.w)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
@@ -258,11 +358,14 @@ function buildProps(el) {
     state.syncProps = () => { setSlider(wS, Math.round(el.w)); setSlider(hS, Math.round(el.h)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
   }
 
-  // 圖層與刪除
-  const layerRow = h('div', { class: 'mini-actions' },
+  appendLayerControls(pane, el);
+}
+
+// 圖層順序 + 移除（移除僅在自製/編輯模板時提供）
+function appendLayerControls(pane, el) {
+  pane.append(h('hr'), h('div', { class: 'mini-actions' },
     h('button', { class: 'btn small', onclick: () => editor.moveLayer(el.id, 1) }, '上移一層'),
-    h('button', { class: 'btn small', onclick: () => editor.moveLayer(el.id, -1) }, '下移一層'));
-  pane.append(h('hr'), layerRow);
+    h('button', { class: 'btn small', onclick: () => editor.moveLayer(el.id, -1) }, '下移一層')));
   if (state.mode === 'build') {
     pane.append(h('button', { class: 'btn small danger block', onclick: () => { editor.removeElement(el.id); buildFillForm(); } }, '移除此物件'));
   }
@@ -276,12 +379,15 @@ function setSlider(row, v) { if (row && row._input) { row._input.value = v; row.
 $('#newTemplateBtn').addEventListener('click', () => openBuilder(null));
 $('#tplName').addEventListener('input', (e) => (state.doc.name = e.target.value));
 $('#tplCategory').addEventListener('input', (e) => (state.doc.category = e.target.value));
-$('#tplSize').addEventListener('change', async (e) => {
-  const [w, hh] = e.target.value.split('x').map(Number);
-  state.doc.width = w; state.doc.height = hh;
-  const bg = state.doc.elements.find((x) => x.isBackground);
-  if (bg) { bg.x = w / 2; bg.y = hh / 2; bg.w = w; bg.h = hh; }
-  await editor.setDoc(state.doc);
+// 尺寸下拉選單（自製模板工具用）
+(function populateSizeSelect() {
+  const sel = $('#tplSize');
+  for (const p of SIZE_PRESETS) sel.append(h('option', { value: `${p.w}x${p.h}` }, p.label));
+})();
+$('#tplSize').addEventListener('change', async (e) => { await applyRatio(e.target.value); });
+$('#addGradBtn').addEventListener('click', () => {
+  editor.addElement(makeGradient({ label: '漸層遮罩', edge: 'bottom', locked: false, color: '#000000', size: 0.4, opacity: 0.85 }));
+  buildFillForm();
 });
 $('#addTextBtn').addEventListener('click', () => {
   editor.addElement(makeText({ label: '新文字', text: '輸入文字', x: state.doc.width / 2, y: state.doc.height / 2, size: 64 }));
@@ -319,11 +425,34 @@ $('#saveTplBtn').addEventListener('click', () => {
 // =============================================================
 $('#backBtn').addEventListener('click', () => { showView('gallery'); renderGallery(); });
 $('#downloadBtn').addEventListener('click', async () => {
+  const type = $('#dlFormat').value; // image/png | image/jpeg
+  const ext = type === 'image/jpeg' ? 'jpg' : 'png';
   toast('產生高解析圖片中…');
-  const url = await editor.exportPNG(2);
-  const name = (state.doc.name || 'post').replace(/[^\w一-鿿-]+/g, '_');
-  downloadDataURL(url, `${name}-${Date.now()}.png`);
+  const url = await editor.exportImage(type, 2, 0.95);
+  // 檔名只保留 ASCII，避免部分瀏覽器對中文檔名直接丟成 "download"（連副檔名都掉）。
+  const base = (state.doc.name || '').replace(/[^\x20-\x7E]+/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '') || 'hrnews-post';
+  downloadDataURL(url, `${base}-${timeStamp()}.${ext}`);
   toast('已下載 ✓');
+});
+function timeStamp() {
+  const d = new Date(), p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+}
+// 匯入 SVG 模板
+$('#importSvgBtn').addEventListener('click', () => $('#fileSvg').click());
+$('#fileSvg').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try {
+    const tpl = await importSVGFile(f);
+    store.save(tpl);
+    toast('SVG 模板已匯入 ✓');
+    renderGallery();
+    openBuilder(tpl); // 匯入後直接進編輯，方便擺放文字欄位
+  } catch (err) {
+    toast('SVG 匯入失敗，請確認檔案');
+  }
 });
 $('#exportAllBtn').addEventListener('click', () => {
   if (store.custom().length === 0) return toast('目前沒有自製模板可匯出');

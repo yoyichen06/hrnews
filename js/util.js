@@ -4,6 +4,13 @@ export const uid = (p = 'id') => `${p}_${Math.random().toString(36).slice(2, 9)}
 
 export const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+// #rrggbb + alpha(0~1) -> rgba() 字串
+export function hexToRgba(hex, a = 1) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '#000000');
+  const n = m ? parseInt(m[1], 16) : 0;
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
 export const deepClone = (o) =>
   typeof structuredClone === 'function' ? structuredClone(o) : JSON.parse(JSON.stringify(o));
 
