@@ -246,6 +246,7 @@ input[type="color"] { width: 42px; height: 34px; border: 1px solid var(--line); 
 .asset-card .adel { position: absolute; top: 5px; right: 5px; width: 24px; height: 24px; border: none; border-radius: 7px; background: rgba(0,0,0,.65); color: #fff; }
 .asset-card .adel:hover { background: var(--accent-2); }
 .asset-card.pickable:hover { border-color: var(--accent); }
+.asset-card .abuiltin { position: absolute; top: 5px; left: 5px; background: rgba(0,0,0,.6); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; }
 .modal-empty { color: var(--muted); text-align: center; padding: 40px 0; }
 .preview-img { display: block; max-width: 100%; max-height: 72vh; margin: 0 auto; border-radius: 8px; }
 

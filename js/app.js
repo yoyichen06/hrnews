@@ -7,6 +7,7 @@ import { instantiate, newBlankTemplate, makeText, makeImage, makeShape, makeGrad
 import { FONTS } from './fonts.js';
 import { importSVGFile } from './svg.js';
 import { assets, projects } from './db.js';
+import { BUILTIN_ASSETS } from './builtin-assets.js';
 import { syncCfg, signUp, signIn, signOut, currentUser, fetchRemote, pushRemote, markDeleted } from './sync.js';
 import { readImageFile, downloadDataURL, deepClone, clamp, uid } from './util.js';
 
@@ -290,6 +291,20 @@ function borderControls(el) {
   return wrap;
 }
 
+// 邊角：方形 / 圓角 切換 + 圓角值（給色塊、圖片框用）
+function cornerControls(el, rebuild) {
+  const rounded = (el.radius || 0) > 0;
+  const seg = h('div', { class: 'seg' },
+    h('button', { class: !rounded ? 'on' : '', onclick: () => { editor.update(el.id, { radius: 0 }); rebuild(); } }, '方形'),
+    h('button', { class: rounded ? 'on' : '', onclick: () => { editor.update(el.id, { radius: el.radius || 24 }); rebuild(); } }, '圓角'));
+  const wrap = h('div', {}, h('label', { class: 'prop' }, h('span', {}, '邊角'), seg));
+  if (rounded) {
+    const cap = Math.round(Math.min(el.w || 800, el.h || 800) / 2) || 400;
+    wrap.append(slider('圓角值', Math.round(el.radius), 0, cap, 1, (v) => editor.update(el.id, { radius: v })));
+  }
+  return wrap;
+}
+
 // 單一欄位的填寫區塊
 function fieldGroup(el, isFixed = false) {
   const badge = isFixed ? '固定' : (el.type === 'text' ? '文字' : el.type === 'shape' ? '色塊' : '圖片');
@@ -307,6 +322,7 @@ function fieldGroup(el, isFixed = false) {
     g.append(
       h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '底色'),
         h('input', { type: 'color', value: el.fill, oninput: (e) => editor.update(el.id, { fill: e.target.value }) })),
+      cornerControls(el, buildFillForm),
       borderControls(el),
       h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調大小 / 位置'));
     return g;
@@ -314,6 +330,7 @@ function fieldGroup(el, isFixed = false) {
   // image
   if (el.hint) g.append(h('div', { class: 'hint-line' }, el.hint));
   if (el.src) g.append(h('img', { class: 'thumb-preview', src: el.src }));
+  g.append(cornerControls(el, buildFillForm));
   g.append(h('div', { class: 'mini-actions' },
     h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(el.id, d).then(buildFillForm)) }, el.src ? '替換圖片' : '上傳圖片'),
     el.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(el.id); buildFillForm(); } }, '清除') : null,
@@ -434,7 +451,6 @@ function buildProps(el) {
   } else if (el.type === 'image') {
     const ratio = el.h / el.w || 1;
     const sizeS = slider('大小', Math.round(el.w), 40, D.width * 1.5, 2, (v) => editor.update(el.id, { w: Math.round(v), h: Math.round(v * ratio) }));
-    const radius = slider('圓角', el.radius || 0, 0, Math.round(Math.min(el.w, el.h) / 2), 1, (v) => editor.update(el.id, { radius: v }));
     const fit = h('div', { class: 'seg' }, ...[['contain', '完整顯示'], ['cover', '填滿裁切']].map(([f, t]) =>
       h('button', { class: el.fit === f ? 'on' : '', onclick: (e) => { editor.update(el.id, { fit: f }); [...e.target.parentNode.children].forEach((b) => b.classList.remove('on')); e.target.classList.add('on'); } }, t)));
     const blend = h('select', { onchange: (e) => editor.update(el.id, { blendMode: e.target.value }) });
@@ -445,17 +461,17 @@ function buildProps(el) {
         el.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(el.id); buildProps(editor.selected); buildFillForm(); } }, '清除') : null),
       h('label', { class: 'prop' }, h('span', {}, '顯示方式'), fit),
       h('label', { class: 'prop' }, h('span', {}, '混合模式'), blend),
-      sizeS, radius, posX, posY, opacity,
+      sizeS, cornerControls(el, () => buildProps(editor.selected)), posX, posY, opacity,
     );
     state.syncProps = () => { setSlider(sizeS, Math.round(el.w)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
   } else if (el.type === 'shape') {
     const color = h('input', { type: 'color', value: el.fill, oninput: (e) => editor.update(el.id, { fill: e.target.value }) });
     const wS = slider('寬度', Math.round(el.w), 10, D.width * 1.5, 2, (v) => editor.update(el.id, { w: v }));
     const hS = slider('高度', Math.round(el.h), 10, D.height * 1.5, 2, (v) => editor.update(el.id, { h: v }));
-    const radius = slider('圓角', el.radius || 0, 0, 400, 1, (v) => editor.update(el.id, { radius: v }));
     pane.append(h('label', { class: 'prop' }, h('span', {}, '底色'), color),
+      cornerControls(el, () => buildProps(editor.selected)),
       h('div', { class: 'group' }, h('div', { class: 'g-label' }, '外框線'), borderControls(el)),
-      wS, hS, radius, posX, posY, opacity);
+      wS, hS, posX, posY, opacity);
     state.syncProps = () => { setSlider(wS, Math.round(el.w)); setSlider(hS, Math.round(el.h)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
   }
 
@@ -697,10 +713,15 @@ async function useAsset(a) {
 }
 
 async function renderAssetSide() {
-  const list = await assets.list();
+  const userList = await assets.list();
+  const builtin = BUILTIN_ASSETS.map((a) => ({ ...a, builtin: true }));
+  const list = [...builtin, ...userList];
   const userCats = readAssetCats();
-  const cats = ['全部', ...userCats];
-  // 分類 chips
+  // 分類 = 內建素材的分類 + 使用者自建分類
+  const catSet = [];
+  for (const a of builtin) if (!catSet.includes(a.category)) catSet.push(a.category);
+  for (const c of userCats) if (!catSet.includes(c)) catSet.push(c);
+  const cats = ['全部', ...catSet];
   const catBox = $('#assetCats');
   catBox.innerHTML = '';
   for (const c of cats) {
@@ -719,7 +740,9 @@ async function renderAssetSide() {
   for (const a of shown) {
     grid.append(h('div', { class: 'asset-card pickable', onclick: () => useAsset(a) },
       h('img', { src: a.src, alt: a.name || '素材' }),
-      h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await assets.remove(a.id); delRemote('asset', a.id); renderAssetSide(); } }, '🗑')));
+      a.builtin
+        ? h('span', { class: 'abuiltin', title: a.name }, '內建')
+        : h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await assets.remove(a.id); delRemote('asset', a.id); renderAssetSide(); } }, '🗑')));
   }
 }
 function initAssetSide() {
