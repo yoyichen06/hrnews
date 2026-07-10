@@ -5,8 +5,11 @@ import { BUILTIN_TEMPLATES } from './builtins.js';
 import { downloadText, deepClone } from './util.js';
 
 const KEY = 'hrnews.templates.v2';
+const TCAT_KEY = 'hrnews.templateCats';
 const SEED_KEY = 'hrnews.seedVer';
-const SEED_VER = '6'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
+const readTCats = () => { try { return JSON.parse(localStorage.getItem(TCAT_KEY) || '[]'); } catch (_) { return []; } };
+const writeTCats = (l) => localStorage.setItem(TCAT_KEY, JSON.stringify([...new Set(l.filter(Boolean))]));
+const SEED_VER = '7'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
 
 function read() {
   try {
@@ -81,6 +84,7 @@ export const store = {
     if (i >= 0) list[i] = tpl; else list.push(tpl);
     write(list);
   },
+  // 分類 = 模板用到的 + 使用者自建的（可以有空分類）
   categories() {
     const seen = new Set();
     const cats = [];
@@ -88,7 +92,26 @@ export const store = {
       const c = t.category || '未分類';
       if (!seen.has(c)) { seen.add(c); cats.push(c); }
     }
+    for (const c of readTCats()) if (!seen.has(c)) { seen.add(c); cats.push(c); }
     return cats;
+  },
+  addCategory(name) {
+    name = (name || '').trim();
+    if (name) writeTCats([...readTCats(), name]);
+  },
+  removeCategory(name) {
+    writeTCats(readTCats().filter((c) => c !== name));
+    const list = read();
+    for (const t of list) if ((t.category || '') === name) { t.category = '未分類'; t.updatedAt = Date.now(); }
+    write(list);
+  },
+  renameCategory(oldN, newN) {
+    newN = (newN || '').trim();
+    if (!newN || newN === oldN) return;
+    writeTCats(readTCats().map((c) => (c === oldN ? newN : c)));
+    const list = read();
+    for (const t of list) if ((t.category || '') === oldN) { t.category = newN; t.updatedAt = Date.now(); }
+    write(list);
   },
   // 還原：把被刪掉的預設模板加回來（不動已存在的）
   restoreDefaults() {

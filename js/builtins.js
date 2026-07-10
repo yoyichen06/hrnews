@@ -21,6 +21,8 @@ function T(o = {}) {
     editable: o.editable !== false, // 是否出現在「快速填寫」表單
     locked: !!o.locked, // 鎖定後不可在畫布上被選取移動
     fixed: !!o.fixed, // 固定元素（外框/LOGO/HR NEWS）：預設鎖定、不進表單，可解鎖後編輯
+    hidden: !!o.hidden, // 隱藏（不顯示、不下載）
+    group: o.group || null, // 群組：同 group 的元素一起顯示/隱藏（例如名稱標籤的底框+文字）
     text: o.text ?? '文字',
     x: o.x ?? 540,
     y: o.y ?? 540,
@@ -47,6 +49,8 @@ function I(o = {}) {
     editable: o.editable !== false,
     locked: !!o.locked,
     fixed: !!o.fixed,
+    hidden: !!o.hidden,
+    group: o.group || null,
     replaceable: o.replaceable !== false,
     isBackground: !!o.isBackground,
     role: o.role || (o.isBackground ? 'background' : ''), // background / overlay / frame
@@ -72,6 +76,8 @@ function S(o = {}) {
     editable: o.editable === true, // 形狀預設不進填寫表單
     locked: !!o.locked,
     fixed: !!o.fixed,
+    hidden: !!o.hidden,
+    group: o.group || null,
     x: o.x ?? 540,
     y: o.y ?? 540,
     w: o.w ?? 600,
@@ -94,6 +100,8 @@ function G(o = {}) {
     editable: o.editable === true,
     locked: o.locked !== false, // 預設鎖定，用面板調整、不擋點選
     fixed: !!o.fixed,
+    hidden: !!o.hidden,
+    group: o.group || null,
     edge: o.edge || 'bottom', // top / bottom
     color: o.color || '#000000',
     size: o.size ?? 0.4, // 佔畫面高度的比例 0~1
@@ -159,10 +167,10 @@ export const BUILTIN_TEMPLATES = [
       // 主標題上方小圖 / LOGO（例如隊伍、遊戲小標，可上傳/替換）
       I({ id: 'titleIcon', label: '主標題上方小圖 / LOGO', x: 540, y: 935, w: 120, h: 120,
           fit: 'contain', hint: '主標題上方的小圖或 LOGO（去背 PNG / SVG，可留空）' }),
-      // 名稱標籤（像 TenZ 那個紅框白底標籤）
-      S({ id: 'nameBox', label: '名稱標籤底框', x: 540, y: 1044, w: 300, h: 84, radius: 6,
+      // 名稱標籤（像 TenZ 那個紅框白底標籤）；底框+文字同群組，可一起顯示/隱藏
+      S({ id: 'nameBox', label: '名稱標籤底框', editable: true, group: 'nameLabel', x: 540, y: 1044, w: 300, h: 84, radius: 6,
           fill: '#ffffff', opacity: 1, stroke: { color: '#e4002b', width: 6 } }),
-      T({ id: 'nameText', label: '名稱標籤文字', text: 'TenZ', x: 540, y: 1044, boxWidth: 300,
+      T({ id: 'nameText', label: '名稱標籤文字', group: 'nameLabel', text: 'TenZ', x: 540, y: 1044, boxWidth: 300,
           font: 'Oswald', weight: 700, size: 52, color: '#e4002b', uppercase: false }),
       // 主標題（坐落在下方銀色橫條上）
       T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1188, boxWidth: 960,
@@ -238,10 +246,10 @@ export const BUILTIN_TEMPLATES = [
       // 主標題上方遊戲 LOGO（例如 MINECRAFT 字標，可上傳/替換）
       I({ id: 'titleIcon', label: '遊戲 LOGO（主標題上方）', x: 540, y: 940, w: 420, h: 120,
           fit: 'contain', hint: '上傳 MINECRAFT 或其他遊戲字標（去背 PNG，可留空）' }),
-      // 版本／資訊標籤（深色膠囊，像「26.3 snapshot-3」）
-      S({ id: 'verBox', label: '版本標籤底框', x: 540, y: 1052, w: 340, h: 74, radius: 37,
-          fill: '#111418', opacity: 0.82 }),
-      T({ id: 'verText', label: '版本標籤文字', text: '26.3 SNAPSHOT-3', x: 540, y: 1052, boxWidth: 340,
+      // 版本／資訊標籤：深色方框 + 外框線（像你給的「26.x snapshot」樣式），可調外框粗細、可隱藏
+      S({ id: 'verBox', label: '版本標籤底框', editable: true, group: 'verLabel', x: 540, y: 1052, w: 340, h: 74, radius: 4,
+          fill: '#0a0f1c', opacity: 0.85, stroke: { color: '#e8ecf4', width: 2 } }),
+      T({ id: 'verText', label: '版本標籤文字', group: 'verLabel', text: '26.3 SNAPSHOT-3', x: 540, y: 1052, boxWidth: 340,
           font: 'Minecraft Ten', weight: 400, size: 34, color: '#ffffff', letterSpacing: 1 }),
       // 主標題（白字、置底、加深黑邊）
       T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1172, boxWidth: 960,

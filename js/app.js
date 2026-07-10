@@ -265,29 +265,53 @@ function buildFillForm() {
   }
 }
 
+// 顯示 / 隱藏開關（同群組一起切換）
+function hideToggle(el) {
+  return h('label', { class: 'inline' },
+    h('input', { type: 'checkbox', ...(el.hidden ? {} : { checked: true }), title: '顯示 / 隱藏',
+      onchange: (e) => { editor.setHidden(el.id, !e.target.checked); buildFillForm(); } }),
+    h('span', { class: 'hint-line' }, '顯示這個（取消勾選就不出現）'));
+}
+
+// 形狀外框線（描邊）控制：開關 + 粗細 + 顏色
+function borderControls(el) {
+  const on = !!(el.stroke && el.stroke.width > 0);
+  const chk = h('input', { type: 'checkbox', ...(on ? { checked: true } : {}), onchange: (e) => {
+    editor.update(el.id, { stroke: e.target.checked
+      ? { color: (el.stroke && el.stroke.color) || '#ffffff', width: (el.stroke && el.stroke.width) || 2 } : null });
+    buildFillForm(); if (editor.selectedId === el.id) buildProps(editor.selected);
+  } });
+  const wrap = h('div', {}, h('label', { class: 'inline' }, chk, h('span', { class: 'hint-line' }, '外框線')));
+  if (on) {
+    wrap.append(slider('外框粗細', el.stroke.width, 0, 40, 1, (v) => editor.update(el.id, { stroke: { ...el.stroke, width: v } })));
+    wrap.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '外框顏色'),
+      h('input', { type: 'color', value: el.stroke.color, oninput: (e) => editor.update(el.id, { stroke: { ...el.stroke, color: e.target.value } }) })));
+  }
+  return wrap;
+}
+
 // 單一欄位的填寫區塊
 function fieldGroup(el, isFixed = false) {
+  const badge = isFixed ? '固定' : (el.type === 'text' ? '文字' : el.type === 'shape' ? '色塊' : '圖片');
+  const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, badge)), hideToggle(el));
   if (el.type === 'text') {
     const ta = h('textarea', { rows: el.text.length > 18 ? 3 : 1, oninput: (e) => editor.update(el.id, { text: e.target.value }) });
     ta.value = el.text;
-    const g = h('div', { class: 'group' },
-      h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, isFixed ? '固定' : '文字')), ta);
-    // 顏色（例如 VAL NEWS 小字）
-    g.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '顏色'),
-      h('input', { type: 'color', value: el.color, oninput: (e) => editor.update(el.id, { color: e.target.value }) })));
-    g.append(h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調位置 / 大小 / 字型'));
+    g.append(ta,
+      h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '顏色'),
+        h('input', { type: 'color', value: el.color, oninput: (e) => editor.update(el.id, { color: e.target.value }) })),
+      h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調位置 / 大小 / 字型'));
     return g;
   }
   if (el.type === 'shape') {
-    // 例如分類標籤底色膠囊：只需改顏色（大小/位置到微調調）
-    return h('div', { class: 'group' },
-      h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, isFixed ? '固定' : '色塊')),
-      h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '顏色'),
+    g.append(
+      h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '底色'),
         h('input', { type: 'color', value: el.fill, oninput: (e) => editor.update(el.id, { fill: e.target.value }) })),
+      borderControls(el),
       h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調大小 / 位置'));
+    return g;
   }
   // image
-  const g = h('div', { class: 'group' }, h('div', { class: 'g-label' }, el.label, h('span', { class: 'badge' }, isFixed ? '固定' : '圖片')));
   if (el.hint) g.append(h('div', { class: 'hint-line' }, el.hint));
   if (el.src) g.append(h('img', { class: 'thumb-preview', src: el.src }));
   g.append(h('div', { class: 'mini-actions' },
@@ -429,7 +453,9 @@ function buildProps(el) {
     const wS = slider('寬度', Math.round(el.w), 10, D.width * 1.5, 2, (v) => editor.update(el.id, { w: v }));
     const hS = slider('高度', Math.round(el.h), 10, D.height * 1.5, 2, (v) => editor.update(el.id, { h: v }));
     const radius = slider('圓角', el.radius || 0, 0, 400, 1, (v) => editor.update(el.id, { radius: v }));
-    pane.append(h('label', { class: 'prop' }, h('span', {}, '顏色'), color), wS, hS, radius, posX, posY, opacity);
+    pane.append(h('label', { class: 'prop' }, h('span', {}, '底色'), color),
+      h('div', { class: 'group' }, h('div', { class: 'g-label' }, '外框線'), borderControls(el)),
+      wS, hS, radius, posX, posY, opacity);
     state.syncProps = () => { setSlider(wS, Math.round(el.w)); setSlider(hS, Math.round(el.h)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
   }
 
@@ -852,6 +878,39 @@ function openSyncModal() {
   }
 }
 $('#syncBtn').addEventListener('click', openSyncModal);
+
+// =============================================================
+//  模板分類管理
+// =============================================================
+function openCatManager() {
+  const body = openModal('管理模板分類');
+  const addIn = h('input', { type: 'text', placeholder: '新分類名稱' });
+  body.append(h('div', { class: 'group' }, h('div', { class: 'g-label' }, '新增分類'),
+    h('div', { class: 'mini-actions' }, addIn,
+      h('button', { class: 'btn small primary', onclick: () => { if (addIn.value.trim()) { store.addCategory(addIn.value); addIn.value = ''; openCatManager(); renderGallery(); } } }, '新增'))));
+  const listBox = h('div', { class: 'group' }, h('div', { class: 'g-label' }, '現有分類（改名會一併更新該分類的模板）'));
+  for (const c of store.categories()) {
+    if (c === '未分類') continue;
+    listBox.append(h('div', { class: 'mini-actions', style: 'align-items:center' },
+      h('span', { style: 'flex:1;font-weight:700' }, c),
+      h('button', { class: 'btn small', onclick: () => { const n = (prompt('改名為：', c) || '').trim(); if (n) { store.renameCategory(c, n); openCatManager(); renderGallery(); syncNow(true); } } }, '改名'),
+      h('button', { class: 'btn small danger', onclick: () => { if (confirm(`刪除分類「${c}」？該分類的模板會移到「未分類」。`)) { store.removeCategory(c); openCatManager(); renderGallery(); syncNow(true); } } }, '刪除')));
+  }
+  body.append(listBox);
+}
+$('#manageCatBtn').addEventListener('click', openCatManager);
+
+// =============================================================
+//  預覽（乾淨成品，沒有選取框 / 空框虛線）
+// =============================================================
+async function openPreview() {
+  const body = openModal('預覽（成品樣子）');
+  const img = h('img', { class: 'preview-img', alt: '預覽' });
+  body.append(img);
+  try { img.src = await editor.exportImage('image/png', 1); }
+  catch (_) { img.replaceWith(h('p', { class: 'modal-empty' }, '預覽產生失敗')); }
+}
+$('#previewBtn').addEventListener('click', openPreview);
 
 // =============================================================
 //  復原 / 重做（Ctrl+Z / Ctrl+Y、預設記憶 100 步）

@@ -101,6 +101,7 @@ export class Editor {
     ctx.fillStyle = d.bgColor || '#111318';
     ctx.fillRect(0, 0, d.width * factor, d.height * factor);
     for (const el of d.elements || []) {
+      if (el.hidden) continue; // 隱藏的元素不畫、不下載
       if (el.type === 'text') this.drawText(ctx, el, factor);
       else if (el.type === 'image') this.drawImage(ctx, el, factor);
       else if (el.type === 'shape') this.drawShape(ctx, el, factor);
@@ -257,7 +258,7 @@ export class Editor {
     ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
     // 空圖片框：畫虛線提示框（只在操作層，不會被下載）。疊加圖層由面板管理，不畫框避免與背景重疊。
     for (const el of this.doc.elements || []) {
-      if (el.type === 'image' && !el.src && el.role !== 'overlay') {
+      if (el.type === 'image' && !el.src && el.role !== 'overlay' && !el.hidden) {
         const b = this.bounds(el);
         ctx.save();
         ctx.setLineDash([12, 10]);
@@ -340,7 +341,7 @@ export class Editor {
     const els = this.doc.elements || [];
     for (let i = els.length - 1; i >= 0; i--) {
       const el = els[i];
-      if (this.isLocked(el)) continue;
+      if (el.hidden || this.isLocked(el)) continue;
       const b = this.bounds(el);
       if (Math.abs(p.x - b.cx) <= b.w / 2 + 6 && Math.abs(p.y - b.cy) <= b.h / 2 + 6) return el;
     }
@@ -495,6 +496,16 @@ export class Editor {
   }
   setBg(color) {
     this.doc.bgColor = color;
+    this.render();
+    this.onChange();
+  }
+  // 顯示/隱藏元素（同 group 的一起切換），例如名稱標籤的底框+文字。
+  setHidden(id, hidden) {
+    const el = this.el(id);
+    if (!el) return;
+    const grp = el.group;
+    for (const e of this.doc.elements) if (e.id === id || (grp && e.group && e.group === grp)) e.hidden = hidden;
+    if (hidden && this.selected && this.selected.hidden) { this.selectedId = null; this.onSelect(null); }
     this.render();
     this.onChange();
   }
