@@ -50,6 +50,12 @@ function clearShadow(ctx) {
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
 }
+// 把點 (px,py) 繞 (cx,cy) 旋轉 deg 度
+function rotatePt(px, py, cx, cy, deg) {
+  if (!deg) return [px, py];
+  const r = (deg * Math.PI) / 180, c = Math.cos(r), s = Math.sin(r), dx = px - cx, dy = py - cy;
+  return [cx + dx * c - dy * s, cy + dx * s + dy * c];
+}
 
 export class Editor {
   constructor(board, overlay) {
@@ -102,12 +108,27 @@ export class Editor {
     ctx.fillRect(0, 0, d.width * factor, d.height * factor);
     for (const el of d.elements || []) {
       if (el.hidden) continue; // 隱藏的元素不畫、不下載
+      const rotDeg = el.type !== 'gradient' ? (el.rotation || 0) : 0;
+      if (rotDeg) {
+        const c = this.center(el);
+        ctx.save();
+        ctx.translate(c.cx * factor, c.cy * factor);
+        ctx.rotate((rotDeg * Math.PI) / 180);
+        ctx.translate(-c.cx * factor, -c.cy * factor);
+      }
       if (el.type === 'text') this.drawText(ctx, el, factor);
       else if (el.type === 'image') this.drawImage(ctx, el, factor);
       else if (el.type === 'shape') this.drawShape(ctx, el, factor);
       else if (el.type === 'gradient') this.drawGradient(ctx, el, factor);
+      if (rotDeg) ctx.restore();
     }
     ctx.restore();
+  }
+
+  // 元素的旋轉中心
+  center(el) {
+    if (el.type === 'text') { const b = this.bounds(el); return { cx: b.cx, cy: b.cy }; }
+    return { cx: el.x, cy: el.y };
   }
 
   layoutText(el) {
@@ -260,7 +281,9 @@ export class Editor {
     for (const el of this.doc.elements || []) {
       if (el.type === 'image' && !el.src && el.role !== 'overlay' && !el.hidden) {
         const b = this.bounds(el);
+        const deg = el.rotation || 0, c = this.center(el);
         ctx.save();
+        if (deg) { ctx.translate(c.cx, c.cy); ctx.rotate((deg * Math.PI) / 180); ctx.translate(-c.cx, -c.cy); }
         ctx.setLineDash([12, 10]);
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(255,255,255,.45)';
@@ -274,19 +297,19 @@ export class Editor {
         ctx.restore();
       }
     }
-    // 選取框 + 縮放控制點
+    // 選取框 + 縮放控制點（跟著旋轉）
     const sel = this.selected;
     if (sel) {
-      const b = this.bounds(sel);
-      const x = b.cx - b.w / 2, y = b.cy - b.h / 2;
+      const cs = this.selCorners(sel);
       ctx.save();
       ctx.strokeStyle = '#38bdf8';
       ctx.lineWidth = 3;
-      ctx.strokeRect(x, y, b.w, b.h);
+      ctx.beginPath();
+      cs.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      ctx.stroke();
       ctx.fillStyle = '#38bdf8';
-      for (const [hx, hy] of this.corners(b)) {
-        ctx.fillRect(hx - HANDLE / 2, hy - HANDLE / 2, HANDLE, HANDLE);
-      }
+      for (const [hx, hy] of cs) ctx.fillRect(hx - HANDLE / 2, hy - HANDLE / 2, HANDLE, HANDLE);
       ctx.restore();
     }
   }
@@ -294,6 +317,11 @@ export class Editor {
   corners(b) {
     const x = b.cx - b.w / 2, y = b.cy - b.h / 2;
     return [[x, y], [x + b.w, y], [x + b.w, y + b.h], [x, y + b.h]];
+  }
+  // 選取框的四角（含旋轉）
+  selCorners(el) {
+    const b = this.bounds(el), c = this.center(el), deg = el.rotation || 0;
+    return this.corners(b).map(([x, y]) => rotatePt(x, y, c.cx, c.cy, deg));
   }
 
   bounds(el) {
@@ -343,7 +371,9 @@ export class Editor {
       const el = els[i];
       if (el.hidden || this.isLocked(el)) continue;
       const b = this.bounds(el);
-      if (Math.abs(p.x - b.cx) <= b.w / 2 + 6 && Math.abs(p.y - b.cy) <= b.h / 2 + 6) return el;
+      const c = this.center(el);
+      const [lx, ly] = rotatePt(p.x, p.y, c.cx, c.cy, -(el.rotation || 0)); // 反旋轉到元素本地座標
+      if (Math.abs(lx - b.cx) <= b.w / 2 + 6 && Math.abs(ly - b.cy) <= b.h / 2 + 6) return el;
     }
     return null;
   }
@@ -351,7 +381,7 @@ export class Editor {
   hitHandle(p) {
     const sel = this.selected;
     if (!sel) return -1;
-    const cs = this.corners(this.bounds(sel));
+    const cs = this.selCorners(sel);
     for (let i = 0; i < cs.length; i++) {
       if (Math.abs(p.x - cs[i][0]) <= HIT_PAD && Math.abs(p.y - cs[i][1]) <= HIT_PAD) return i;
     }

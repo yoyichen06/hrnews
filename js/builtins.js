@@ -11,6 +11,7 @@
 
 import { uid, deepClone } from './util.js';
 import { VAL_FRAME, MC_FRAME } from './frames.js';
+import { MAP_BADGE } from './map-badge.js';
 
 // ---- 元素工廠（帶預設值，建立模板時只需覆寫需要的欄位）----
 function T(o = {}) {
@@ -23,6 +24,7 @@ function T(o = {}) {
     fixed: !!o.fixed, // 固定元素（外框/LOGO/HR NEWS）：預設鎖定、不進表單，可解鎖後編輯
     hidden: !!o.hidden, // 隱藏（不顯示、不下載）
     group: o.group || null, // 群組：同 group 的元素一起顯示/隱藏（例如名稱標籤的底框+文字）
+    rotation: o.rotation ?? 0, // 旋轉角度（度）
     text: o.text ?? '文字',
     x: o.x ?? 540,
     y: o.y ?? 540,
@@ -51,6 +53,7 @@ function I(o = {}) {
     fixed: !!o.fixed,
     hidden: !!o.hidden,
     group: o.group || null,
+    rotation: o.rotation ?? 0,
     replaceable: o.replaceable !== false,
     isBackground: !!o.isBackground,
     role: o.role || (o.isBackground ? 'background' : ''), // background / overlay / frame
@@ -78,6 +81,7 @@ function S(o = {}) {
     fixed: !!o.fixed,
     hidden: !!o.hidden,
     group: o.group || null,
+    rotation: o.rotation ?? 0,
     x: o.x ?? 540,
     y: o.y ?? 540,
     w: o.w ?? 600,
@@ -278,6 +282,29 @@ export const BUILTIN_TEMPLATES = [
           size: 40, color: '#c9d1d9', lineHeight: 1.4 }),
       T({ id: 'footer', label: '版本標註', text: '特戰英豪 版本更新', x: 540, y: 990,
           font: 'Teko', weight: 700, size: 42, color: '#7a8899', letterSpacing: 4 }),
+    ],
+  },
+  {
+    id: 'map-rotation',
+    name: '地圖輪替',
+    category: '特戰英豪',
+    builtin: true,
+    width: 1080,
+    height: 1350,
+    bgColor: '#0b0d12',
+    elements: [
+      ...bgTrio(1080, 1350, { color: '#000000', topOp: 0.6, botOp: 0.8 }),
+      // 可編輯的地圖名稱（淡淡的外框大字，襯在菱形後面）
+      T({ id: 'mapName', label: '地圖名稱', text: 'LOTUS ABYSS', x: 540, y: 620, boxWidth: 1040,
+          font: 'Oswald', weight: 700, size: 150, color: '#ffffff', opacity: 0.16, letterSpacing: 2, uppercase: true, lineHeight: 1.0 }),
+      // 橫線（裝飾）
+      S({ id: 'line', label: '橫線', x: 540, y: 620, w: 1040, h: 5, radius: 0, fill: '#ffffff', opacity: 0.25 }),
+      // 菱形徽章（IN / OUT / Map Rotation）——圖片，可移動/縮放
+      I({ id: 'badge', label: '地圖輪替徽章', x: 540, y: 620, w: 360, h: 360, fit: 'contain', src: MAP_BADGE,
+          hint: '菱形徽章圖示（可移動、縮放、替換）' }),
+      // 主標題（置底，可留空）
+      T({ id: 'title', label: '主標題', text: '地圖輪替', x: 540, y: 1180, boxWidth: 960,
+          font: 'Noto Sans TC', weight: 900, size: 84, color: '#ffffff', stroke: { color: '#000000', width: 5 } }),
     ],
   },
 ];

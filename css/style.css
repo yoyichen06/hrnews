@@ -220,6 +220,14 @@ input[type="color"] { width: 42px; height: 34px; border: 1px solid var(--line); 
 .mini-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .thumb-preview { width: 100%; max-height: 120px; object-fit: contain; background: #0f1219; border-radius: 8px; border: 1px solid var(--line); }
 .hint-line { color: var(--muted); font-size: 12px; line-height: 1.5; }
+/* 圖層面板 */
+.layer-row { display: flex; align-items: center; gap: 4px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; background: var(--panel-2); }
+.layer-row.active { border-color: var(--accent); }
+.layer-row .lyr-name { flex: 1; font-size: 13px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer-row .lyr-ic { border: none; background: transparent; color: var(--text); width: 26px; height: 26px; border-radius: 6px; font-size: 13px; line-height: 1; }
+.layer-row .lyr-ic:hover { background: var(--line); }
+.layer-row .lyr-ic.danger:hover { background: var(--accent-2); color: #fff; }
+
 .lock-toggle { font-size: 13px; font-weight: 700; cursor: pointer; gap: 10px; }
 .lock-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 .danger { color: #ff6b6b; border-color: #4a2630; }

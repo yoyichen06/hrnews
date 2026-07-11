@@ -226,6 +226,27 @@ function activateTab(name) {
   for (const t of document.querySelectorAll('.tab')) t.classList.toggle('active', t.dataset.tab === name);
   $('#fillPanel').classList.toggle('hidden', name !== 'fill');
   $('#propsPanel').classList.toggle('hidden', name !== 'props');
+  $('#layersPanel').classList.toggle('hidden', name !== 'layers');
+  if (name === 'layers') renderLayers();
+}
+
+// 圖層面板：由上到下列出所有元素（可選取 / 顯示隱藏 / 鎖定 / 上下移 / 刪除）
+function renderLayers() {
+  const pane = $('#layersPanel');
+  pane.innerHTML = '';
+  const els = state.doc.elements;
+  for (let i = els.length - 1; i >= 0; i--) { // 陣列後面的畫在上層 → 由上往下列
+    const el = els[i];
+    const row = h('div', { class: 'layer-row' + (editor.selectedId === el.id ? ' active' : '') });
+    row.append(
+      h('button', { class: 'lyr-ic', title: el.hidden ? '顯示' : '隱藏', onclick: () => { editor.setHidden(el.id, !el.hidden); renderLayers(); } }, el.hidden ? '🚫' : '👁'),
+      h('button', { class: 'lyr-ic', title: el.locked ? '解鎖' : '鎖定', onclick: () => { editor.update(el.id, { locked: !el.locked }); renderLayers(); } }, el.locked ? '🔒' : '🔓'),
+      h('span', { class: 'lyr-name', onclick: () => { editor.select(el.id); activateTab('props'); } }, el.label || el.type),
+      h('button', { class: 'lyr-ic', title: '上移', onclick: () => { editor.moveLayer(el.id, 1); renderLayers(); } }, '▲'),
+      h('button', { class: 'lyr-ic', title: '下移', onclick: () => { editor.moveLayer(el.id, -1); renderLayers(); } }, '▼'),
+      h('button', { class: 'lyr-ic danger', title: '刪除', onclick: () => { editor.removeElement(el.id); buildFillForm(); renderLayers(); } }, '🗑'));
+    pane.append(row);
+  }
 }
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => activateTab(t.dataset.tab)));
 
@@ -414,6 +435,7 @@ function buildProps(el) {
   const posX = slider('水平位置 X', Math.round(el.x), 0, D.width, 1, (v) => editor.update(el.id, { x: v }));
   const posY = slider('垂直位置 Y', Math.round(el.y), 0, D.height, 1, (v) => editor.update(el.id, { y: v }));
   const opacity = slider('透明度', el.opacity ?? 1, 0, 1, 0.05, (v) => editor.update(el.id, { opacity: v }), (v) => Math.round(v * 100) + '%');
+  const rotate = slider('旋轉', Math.round(el.rotation || 0), -180, 180, 1, (v) => editor.update(el.id, { rotation: v }), (v) => v + '°');
 
   if (el.type === 'text') {
     const ta = h('textarea', { rows: 2, oninput: (e) => editor.update(el.id, { text: e.target.value }) });
@@ -475,6 +497,7 @@ function buildProps(el) {
     state.syncProps = () => { setSlider(wS, Math.round(el.w)); setSlider(hS, Math.round(el.h)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
   }
 
+  pane.append(rotate); // 旋轉：所有物件
   if (el.type === 'text') pane.append(strokeControls(el));
   pane.append(shadowControls(el)); // 陰影：所有物件都能加
   appendLayerControls(pane, el);
@@ -978,21 +1001,30 @@ async function undo() {
 async function redo() {
   if (history.idx < history.stack.length - 1) { history.idx++; await histApply(history.stack[history.idx]); toast('已重做'); }
 }
+function isTypingTarget(t) {
+  return t && (t.tagName === 'TEXTAREA' || t.isContentEditable || (t.tagName === 'INPUT' && /^(text|number|search|url|email|password)$/.test(t.type)));
+}
 document.addEventListener('keydown', (e) => {
-  if (!(e.ctrlKey || e.metaKey)) return;
-  const t = e.target;
-  const typing = t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /^(text|number|search|url|email|password)$/.test(t.type)));
-  if (typing) return; // 在文字欄位內讓瀏覽器原生的復原生效
-  const k = e.key.toLowerCase();
-  if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+  if (e.ctrlKey || e.metaKey) {
+    if (isTypingTarget(e.target)) return; // 文字欄位內走瀏覽器原生復原
+    const k = e.key.toLowerCase();
+    if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+    return;
+  }
+  // Delete / Backspace 刪除選取的物件
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !isTypingTarget(e.target)) {
+    if ($('#editorView').classList.contains('hidden')) return;
+    const sel = editor.selected;
+    if (sel) { e.preventDefault(); editor.removeElement(sel.id); buildFillForm(); renderLayers(); }
+  }
 });
 
 // =============================================================
 //  啟動
 // =============================================================
 editor = new Editor($('#board'), $('#overlay'));
-editor.onSelect = (el) => { buildProps(el); if (el) activateTab('props'); };
+editor.onSelect = (el) => { buildProps(el); if (!$('#layersPanel').classList.contains('hidden')) renderLayers(); if (el && $('#layersPanel').classList.contains('hidden')) activateTab('props'); };
 editor.onChange = () => { state.syncProps && state.syncProps(); histRecord(); };
 renderGallery();
 
