@@ -23,8 +23,9 @@ export function fontStack(family) {
 }
 
 // 產生 canvas / CSS 共用的 font 字串。
-export function fontString({ weight = 700, size = 48, family = 'Noto Sans TC' }) {
-  return `${weight} ${Math.round(size)}px ${fontStack(family)}`;
+// 元素用的欄位是 `font`（不是 family），這裡兩者都接受。
+export function fontString({ weight = 700, size = 48, font, family } = {}) {
+  return `${weight} ${Math.round(size)}px ${fontStack(font || family || 'Noto Sans TC')}`;
 }
 
 // 確保某個 (family, weight) 已被瀏覽器載入，才進行繪製。

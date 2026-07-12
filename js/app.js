@@ -8,7 +8,7 @@ import { FONTS } from './fonts.js';
 import { importSVGFile } from './svg.js';
 import { assets, projects } from './db.js';
 import { BUILTIN_ASSETS } from './builtin-assets.js';
-import { syncCfg, signUp, signIn, signOut, currentUser, fetchRemote, pushRemote, markDeleted } from './sync.js';
+import { syncCfg, signUp, signIn, signInWithGitHub, signOut, currentUser, fetchRemote, pushRemote, markDeleted } from './sync.js';
 import { readImageFile, downloadDataURL, deepClone, clamp, uid } from './util.js';
 
 // ---------- 迷你工具 ----------
@@ -734,7 +734,7 @@ $('#assetSideClose').addEventListener('click', () => $('#assetSide').classList.a
 // 點素材：套到選取中的圖片欄位，否則在畫布新增一個圖片
 async function useAsset(a) {
   if (a.component) { // 元件：一次加入多個可編輯元素
-    await editor.addComponent(a.component(state.doc.width / 2, state.doc.height / 2));
+    await editor.addComponent(a.component(state.doc.width / 2, state.doc.height / 2, state.doc.width));
     buildFillForm();
     toast('已加入元件（文字可改）');
     return;
@@ -935,6 +935,8 @@ function openSyncModal() {
       } catch (e) { toast('失敗：' + (e.message || e)); }
     };
     authBox.append(
+      h('button', { class: 'btn small primary', style: 'width:100%;justify-content:center', onclick: async () => { try { toast('前往 GitHub 登入…'); await signInWithGitHub(); } catch (e) { toast('失敗：' + (e.message || e)); } } }, '用 GitHub 登入'),
+      h('div', { class: 'hint-line', style: 'text-align:center;margin:6px 0' }, '── 或用 Email ──'),
       h('label', { class: 'prop' }, h('span', {}, 'Email'), email),
       h('label', { class: 'prop' }, h('span', {}, '密碼'), pass),
       h('div', { class: 'mini-actions' },
