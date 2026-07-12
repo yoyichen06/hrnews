@@ -7,8 +7,11 @@ import { downloadText, deepClone } from './util.js';
 const KEY = 'hrnews.templates.v2';
 const TCAT_KEY = 'hrnews.templateCats';
 const SEED_KEY = 'hrnews.seedVer';
+const DEL_KEY = 'hrnews.deletedBuiltins'; // 被刪掉的預設模板 id（避免每次載入又被種回來、也能跨裝置同步刪除）
 const readTCats = () => { try { return JSON.parse(localStorage.getItem(TCAT_KEY) || '[]'); } catch (_) { return []; } };
 const writeTCats = (l) => localStorage.setItem(TCAT_KEY, JSON.stringify([...new Set(l.filter(Boolean))]));
+const readDel = () => { try { const d = JSON.parse(localStorage.getItem(DEL_KEY) || '{}'); return { ids: d.ids || [], updatedAt: d.updatedAt || 0 }; } catch (_) { return { ids: [], updatedAt: 0 }; } };
+const writeDel = (d) => localStorage.setItem(DEL_KEY, JSON.stringify({ ids: [...new Set(d.ids)], updatedAt: d.updatedAt || Date.now() }));
 const SEED_VER = '9'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
 
 function read() {
@@ -44,9 +47,10 @@ function migrate() {
   }
   const byBuiltin = new Map();
   for (const t of list) if (t.fromBuiltin) byBuiltin.set(t.fromBuiltin, t);
+  const del = new Set(readDel().ids);
   for (const b of BUILTIN_TEMPLATES) {
     const ex = byBuiltin.get(b.id);
-    if (!ex) list.push(fromBuiltin(b));
+    if (!ex) { if (!del.has(b.id)) list.push(fromBuiltin(b)); } // 被刪掉的預設模板不要種回來
     else if (!ex.updatedAt) list[list.indexOf(ex)] = fromBuiltin(b);
   }
   write(list);
@@ -75,7 +79,21 @@ export const store = {
     return tpl;
   },
   remove(id) {
-    write(read().filter((t) => t.id !== id));
+    const list = read();
+    const t = list.find((x) => x.id === id);
+    // 若刪的是預設模板，記下來避免下次載入又被種回來（也會被同步出去）
+    const bId = (t && t.fromBuiltin) || (BUILTIN_TEMPLATES.some((b) => b.id === id) ? id : null);
+    if (bId) { const d = readDel(); if (!d.ids.includes(bId)) { d.ids.push(bId); d.updatedAt = Date.now(); writeDel(d); } }
+    write(list.filter((x) => x.id !== id));
+  },
+  // 同步用：讀 / 寫「已刪除預設模板」清單（跨裝置一致）
+  getDeleted() { return readDel(); },
+  setDeleted(d) {
+    if (!d) return;
+    writeDel({ ids: d.ids || [], updatedAt: d.updatedAt || Date.now() });
+    // 立刻把清單內的預設模板從本機移除
+    const del = new Set(d.ids || []);
+    write(read().filter((t) => !(t.fromBuiltin && del.has(t.fromBuiltin))));
   },
   // 同步用：直接覆蓋（保留原本的 updatedAt，不像 save 會更新時間）
   upsertRaw(tpl) {
@@ -115,10 +133,11 @@ export const store = {
   },
   // 還原：把被刪掉的預設模板加回來（不動已存在的）
   restoreDefaults() {
+    writeDel({ ids: [], updatedAt: Date.now() }); // 清掉刪除清單，讓預設模板能回來（也蓋掉雲端的刪除）
     const list = read();
     const have = new Set(list.map((t) => t.fromBuiltin).filter(Boolean));
     let added = 0;
-    for (const b of BUILTIN_TEMPLATES) if (!have.has(b.id)) { list.push(fromBuiltin(b)); added++; }
+    for (const b of BUILTIN_TEMPLATES) if (!have.has(b.id)) { const c = fromBuiltin(b); c.updatedAt = Date.now(); list.push(c); added++; }
     write(list);
     return added;
   },

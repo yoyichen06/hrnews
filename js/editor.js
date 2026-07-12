@@ -235,21 +235,52 @@ export class Editor {
     ctx.restore();
   }
 
+  // 依形狀類型建立路徑（rect / ellipse / triangle / polygon / star / line）
+  shapePath(ctx, el, bx, by, bw, bh, f) {
+    const cx = bx + bw / 2, cy = by + bh / 2, rx = bw / 2, ry = bh / 2;
+    const type = el.shape || 'rect';
+    ctx.beginPath();
+    if (type === 'ellipse') {
+      ctx.ellipse(cx, cy, Math.abs(rx), Math.abs(ry), 0, 0, Math.PI * 2);
+      ctx.closePath();
+    } else if (type === 'triangle') {
+      ctx.moveTo(cx, by); ctx.lineTo(bx + bw, by + bh); ctx.lineTo(bx, by + bh); ctx.closePath();
+    } else if (type === 'polygon' || type === 'star') {
+      const n = Math.max(3, Math.round(el.sides || 6));
+      const step = Math.PI / n;
+      const pts = type === 'star' ? n * 2 : n;
+      for (let i = 0; i < pts; i++) {
+        const ang = -Math.PI / 2 + i * (type === 'star' ? step : step * 2);
+        const rr = type === 'star' && i % 2 ? 0.44 : 1; // 星形內外半徑
+        const px = cx + Math.cos(ang) * rx * rr, py = cy + Math.sin(ang) * ry * rr;
+        i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+    } else if (type === 'line') {
+      ctx.moveTo(bx, cy); ctx.lineTo(bx + bw, cy);
+    } else {
+      roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
+    }
+  }
+
   drawShape(ctx, el, f) {
     const bx = (el.x - el.w / 2) * f, by = (el.y - el.h / 2) * f, bw = el.w * f, bh = el.h * f;
+    const isLine = el.shape === 'line';
     ctx.save();
     ctx.globalAlpha = el.opacity ?? 1;
-    roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
+    this.shapePath(ctx, el, bx, by, bw, bh, f);
     const hadShadow = applyShadow(ctx, el.shadow, f);
-    if (!el.noFill) { ctx.fillStyle = el.fill; ctx.fill(); }
+    if (!el.noFill && !isLine) { ctx.fillStyle = el.fill; ctx.fill(); }
     if (hadShadow) clearShadow(ctx); // 避免描邊再疊一層陰影
+    // 線：沒有外框設定時，用填色當線色畫出來
+    if (isLine && !el.stroke) { ctx.strokeStyle = el.fill; ctx.lineWidth = Math.max(1, bh) || 2; ctx.stroke(); }
     if (el.stroke) {
       ctx.strokeStyle = el.stroke.color;
       ctx.lineWidth = (el.stroke.width || 2) * f;
       ctx.stroke();
     }
-    // 四角方塊（裝飾）：線（描邊）與方塊顏色是分開的
-    if (el.corners && el.corners.size > 0) {
+    // 四角方塊（裝飾）：線（描邊）與方塊顏色是分開的（僅方形適用）
+    if (el.corners && el.corners.size > 0 && (!el.shape || el.shape === 'rect')) {
       const cs = el.corners.size * f;
       ctx.fillStyle = el.corners.color || '#e4002b';
       for (const [cxp, cyp] of [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]]) {
@@ -381,6 +412,8 @@ export class Editor {
     for (let i = els.length - 1; i >= 0; i--) {
       const el = els[i];
       if (el.hidden || this.isLocked(el)) continue;
+      // 滿版底層（背景圖 / 疊加層）不吃點擊：點空白處等於點到它們，應該要取消選取
+      if (el.isBackground || el.role === 'background' || el.role === 'overlay') continue;
       const b = this.bounds(el);
       const c = this.center(el);
       const [lx, ly] = rotatePt(p.x, p.y, c.cx, c.cy, -(el.rotation || 0)); // 反旋轉到元素本地座標

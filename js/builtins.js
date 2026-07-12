@@ -85,6 +85,8 @@ function S(o = {}) {
     hidden: !!o.hidden,
     group: o.group || null,
     rotation: o.rotation ?? 0,
+    shape: o.shape || 'rect', // rect / ellipse / triangle / polygon / star / line
+    sides: o.sides ?? 6,       // polygon 邊數 / star 角數
     x: o.x ?? 540,
     y: o.y ?? 540,
     w: o.w ?? 600,

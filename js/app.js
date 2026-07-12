@@ -89,6 +89,7 @@ async function renderGallery() {
     Editor.renderThumb(deepClone(tpl)).then((src) => (img.src = src)).catch(() => {});
     // 所有模板（含預設）都可編輯 / 複製 / 刪除
     const actions = h('div', { class: 'card-actions' },
+      h('button', { class: 'icon-btn', title: '重新命名', onclick: (e) => { e.stopPropagation(); renameTemplate(tpl); } }, '🏷'),
       h('button', { class: 'icon-btn', title: '編輯模板', onclick: (e) => { e.stopPropagation(); openBuilder(tpl); } }, '✎'),
       h('button', { class: 'icon-btn', title: '複製一份', onclick: (e) => { e.stopPropagation(); duplicateToCustom(tpl); } }, '⧉'),
       h('button', { class: 'icon-btn', title: '刪除模板', onclick: (e) => { e.stopPropagation(); if (confirm(`刪除模板「${tpl.name}」？`)) { store.remove(tpl.id); delRemote('template', tpl.id); renderGallery(); syncNow(true); } } }, '🗑'));
@@ -112,6 +113,18 @@ function duplicateToCustom(tpl) {
   store.save(copy);
   pushOne('template', copy.id, copy, copy.updatedAt);
   toast('已複製為自製模板 ✓');
+  renderGallery();
+  syncNow(true);
+}
+// 重新命名模板（含預設）：改名後儲存 + 同步
+function renameTemplate(tpl) {
+  const name = (prompt('模板名稱：', tpl.name) || '').trim();
+  if (!name || name === tpl.name) return;
+  const t = deepClone(tpl);
+  t.name = name;
+  store.save(t);
+  pushOne('template', t.id, t, t.updatedAt);
+  toast('已改名 ✓');
   renderGallery();
   syncNow(true);
 }
@@ -509,8 +522,15 @@ function buildProps(el) {
     const color = h('input', { type: 'color', value: el.fill, oninput: (e) => editor.update(el.id, { fill: e.target.value }) });
     const wS = slider('寬度', Math.round(el.w), 10, D.width * 1.5, 2, (v) => editor.update(el.id, { w: v }));
     const hS = slider('高度', Math.round(el.h), 10, D.height * 1.5, 2, (v) => editor.update(el.id, { h: v }));
-    pane.append(h('label', { class: 'prop' }, h('span', {}, '底色'), color),
-      cornerControls(el, () => buildProps(editor.selected)),
+    const shapeSel = h('select', { onchange: (e) => { editor.update(el.id, { shape: e.target.value }); buildProps(editor.selected); } });
+    for (const [v, t] of [['rect', '方形'], ['ellipse', '圓形 / 橢圓'], ['triangle', '三角形'], ['polygon', '多邊形'], ['star', '星形'], ['line', '線']])
+      shapeSel.append(h('option', { value: v, ...((el.shape || 'rect') === v ? { selected: true } : {}) }, t));
+    pane.append(h('label', { class: 'prop' }, h('span', {}, '圖形'), shapeSel),
+      h('label', { class: 'prop' }, h('span', {}, '底色'), color));
+    if (el.shape === 'polygon' || el.shape === 'star')
+      pane.append(slider(el.shape === 'star' ? '角數' : '邊數', Math.round(el.sides || 6), 3, 12, 1, (v) => editor.update(el.id, { sides: v })));
+    if (!el.shape || el.shape === 'rect') pane.append(cornerControls(el, () => buildProps(editor.selected)));
+    pane.append(
       h('div', { class: 'group' }, h('div', { class: 'g-label' }, '外框線 / 四角方塊'), borderControls(el), cornerSquareControls(el)),
       wS, hS, posX, posY, opacity);
     state.syncProps = () => { setSlider(wS, Math.round(el.w)); setSlider(hS, Math.round(el.h)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
@@ -610,8 +630,20 @@ $('#addImageBtn').addEventListener('click', () => {
   editor.addElement(makeImage({ label: '圖片框', x: state.doc.width / 2, y: state.doc.height / 2, w: 400, h: 400 }));
   buildFillForm();
 });
-$('#addShapeBtn').addEventListener('click', () => {
-  editor.addElement(makeShape({ label: '色塊', x: state.doc.width / 2, y: state.doc.height / 2, w: 600, h: 200, opacity: 1, fill: '#ff4655' }));
+const SHAPE_META = {
+  rect: { label: '方形', w: 400, h: 400 }, ellipse: { label: '圓形', w: 400, h: 400 },
+  triangle: { label: '三角形', w: 400, h: 360 }, polygon: { label: '多邊形', w: 400, h: 400 },
+  star: { label: '星形', w: 400, h: 400 }, line: { label: '線', w: 500, h: 8 },
+};
+document.querySelectorAll('.addShapeBtn').forEach((btn) => btn.addEventListener('click', () => {
+  const t = btn.dataset.shape || 'rect';
+  const m = SHAPE_META[t] || SHAPE_META.rect;
+  editor.addElement(makeShape({ label: m.label, shape: t, x: state.doc.width / 2, y: state.doc.height / 2, w: m.w, h: m.h, opacity: 1, fill: '#ff4655' }));
+  buildFillForm();
+}));
+// 舊版單一按鈕（若還在）
+$('#addShapeBtn')?.addEventListener('click', () => {
+  editor.addElement(makeShape({ label: '方形', shape: 'rect', x: state.doc.width / 2, y: state.doc.height / 2, w: 400, h: 400, opacity: 1, fill: '#ff4655' }));
   buildFillForm();
 });
 $('#addBgBtn').addEventListener('click', () => {
@@ -873,12 +905,16 @@ async function collectLocal() {
   for (const t of store.all()) if (t.updatedAt || !t.fromBuiltin) out.push({ kind: 'template', item_id: t.id, data: t, updated_at: t.updatedAt || 1 });
   for (const a of await assets.list()) out.push({ kind: 'asset', item_id: a.id, data: a, updated_at: a.savedAt || 1 });
   for (const p of await projects.list()) out.push({ kind: 'project', item_id: p.id, data: p, updated_at: p.savedAt || 1 });
+  // 「已刪除的預設模板」清單也同步，讓刪除跨裝置一致、且不會被種回來
+  const del = store.getDeleted();
+  if (del.updatedAt) out.push({ kind: 'meta', item_id: 'deletedBuiltins', data: del, updated_at: del.updatedAt });
   return out;
 }
 function applyLocal(kind, data) {
   if (kind === 'template') store.upsertRaw(data);
   else if (kind === 'asset') assets.put(data);
   else if (kind === 'project') projects.put(data);
+  else if (kind === 'meta' && data && data.ids) store.setDeleted(data);
 }
 function removeLocalItem(kind, id) {
   if (kind === 'template') store.remove(id);
@@ -914,6 +950,7 @@ async function syncNow(silent) {
       if (!r || l.updated_at > rt) toPush.push({ kind: l.kind, item_id: l.item_id, data: l.data, updated_at: l.updated_at });
     }
     if (toPush.length) await pushRemote(toPush);
+    store.setDeleted(store.getDeleted()); // 保險：把已刪除的預設模板再清一次（避免舊 template 列又被種回來）
     renderGallery();
     if (!$('#editorView').classList.contains('hidden')) renderAssetSide();
     if (!silent) toast('已同步 ✓');
