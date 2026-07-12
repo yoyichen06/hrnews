@@ -900,6 +900,47 @@ async function syncNow(silent) {
   } finally { syncing = false; }
 }
 
+// =============================================================
+//  自動儲存 + 自動同步（任何更改都會自動存進歷史／模板，並推上雲端）
+// =============================================================
+let saveStatusTimer = null;
+function setSaveStatus(text, cls) {
+  const el = $('#saveStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'save-status show ' + (cls || '');
+  clearTimeout(saveStatusTimer);
+  if (cls === 'saved') saveStatusTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+let autosaveTimer = null, autosaveRunning = false, autosaveDirty = false;
+function scheduleAutoSave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(runAutoSave, 900);
+}
+async function runAutoSave() {
+  if (autosaveRunning) { autosaveDirty = true; return; }
+  autosaveRunning = true;
+  setSaveStatus(state.user ? '儲存並同步中…' : '儲存中…', 'saving');
+  try {
+    if (state.mode === 'post') {
+      if (state.pages.length) await saveProject();        // 存進歷史 + 推上雲端
+    } else if (state.mode === 'build' && state.doc) {
+      const nameEl = $('#tplName'), catEl = $('#tplCategory');
+      if (nameEl && nameEl.value.trim()) state.doc.name = nameEl.value.trim();
+      if (catEl && catEl.value.trim()) state.doc.category = catEl.value.trim();
+      store.save(state.doc);                              // 存模板（更新 updatedAt）
+      pushOne('template', state.doc.id, state.doc, state.doc.updatedAt); // 推上雲端
+    }
+    setSaveStatus(state.user ? '已儲存並同步 ✓' : '已儲存 ✓', 'saved');
+  } catch (_) {
+    setSaveStatus('儲存失敗，稍後自動重試', 'saving');
+  } finally {
+    autosaveRunning = false;
+    if (autosaveDirty) { autosaveDirty = false; scheduleAutoSave(); }
+  }
+}
+
 function openSyncModal() {
   const body = openModal('雲端同步（Supabase）');
   const cfg = syncCfg.get();
@@ -1017,10 +1058,10 @@ async function histApply(snap) {
 async function undo() {
   clearTimeout(history.timer);
   histCommit(); // 先把還沒記錄的最新狀態存起來
-  if (history.idx > 0) { history.idx--; await histApply(history.stack[history.idx]); toast('已復原'); }
+  if (history.idx > 0) { history.idx--; await histApply(history.stack[history.idx]); scheduleAutoSave(); toast('已復原'); }
 }
 async function redo() {
-  if (history.idx < history.stack.length - 1) { history.idx++; await histApply(history.stack[history.idx]); toast('已重做'); }
+  if (history.idx < history.stack.length - 1) { history.idx++; await histApply(history.stack[history.idx]); scheduleAutoSave(); toast('已重做'); }
 }
 function isTypingTarget(t) {
   return t && (t.tagName === 'TEXTAREA' || t.isContentEditable || (t.tagName === 'INPUT' && /^(text|number|search|url|email|password)$/.test(t.type)));
@@ -1060,7 +1101,7 @@ document.addEventListener('keydown', (e) => {
 // =============================================================
 editor = new Editor($('#board'), $('#overlay'));
 editor.onSelect = (el) => { buildProps(el); if (!$('#layersPanel').classList.contains('hidden')) renderLayers(); if (el && $('#layersPanel').classList.contains('hidden')) activateTab('props'); };
-editor.onChange = () => { state.syncProps && state.syncProps(); histRecord(); };
+editor.onChange = () => { state.syncProps && state.syncProps(); histRecord(); scheduleAutoSave(); };
 renderGallery();
 
 // 若已設定並登入過，載入時自動同步

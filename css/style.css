@@ -114,6 +114,10 @@ hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
   position: sticky; top: 0; background: rgba(11,13,18,.92); backdrop-filter: blur(8px); z-index: 15;
 }
 .editor-title { flex: 1; font-weight: 800; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.save-status { font-size: 12px; color: var(--muted); white-space: nowrap; opacity: 0; transition: opacity .25s; min-width: 0; }
+.save-status.show { opacity: 1; }
+.save-status.saving { color: var(--muted); }
+.save-status.saved { color: #12b886; }
 
 .editor-body { display: flex; gap: 20px; padding: 18px 16px 60px; max-width: 1200px; margin: 0 auto; align-items: flex-start; }
 .stage-wrap { flex: 1; min-width: 0; position: sticky; top: 64px; }
