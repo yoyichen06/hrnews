@@ -89,11 +89,12 @@ function S(o = {}) {
     y: o.y ?? 540,
     w: o.w ?? 600,
     h: o.h ?? 200,
-    radius: o.radius ?? 24,
+    radius: o.radius ?? 0, // 預設直角（方形），要圓角自己開
     fill: o.fill || '#000000',
     noFill: !!o.noFill, // 只描邊、不填色（做外框用）
     opacity: o.opacity ?? 0.45,
-    stroke: o.stroke || null, // { color, width }
+    stroke: o.stroke || null, // { color, width }（線）
+    corners: o.corners || null, // { size, color } 四角方塊（顏色與線分開）
     shadow: o.shadow || null,
   };
 }
@@ -175,10 +176,10 @@ export const BUILTIN_TEMPLATES = [
       I({ id: 'titleIcon', label: '主標題上方小圖 / LOGO', x: 540, y: 935, w: 120, h: 120,
           fit: 'contain', hint: '主標題上方的小圖或 LOGO（去背 PNG / SVG，可留空）' }),
       // 名稱標籤（像 TenZ 那個紅框白底標籤）；底框+文字同群組，可一起顯示/隱藏
-      S({ id: 'nameBox', label: '名稱標籤底框', editable: true, group: 'nameLabel', x: 540, y: 1044, w: 300, h: 84, radius: 6,
-          fill: '#ffffff', opacity: 1, stroke: { color: '#e4002b', width: 6 } }),
-      T({ id: 'nameText', label: '名稱標籤文字', group: 'nameLabel', text: 'TenZ', x: 540, y: 1044, boxWidth: 300,
-          font: 'Oswald', weight: 700, size: 52, color: '#e4002b', uppercase: false }),
+      S({ id: 'nameBox', label: '名稱標籤底框', editable: true, group: 'nameLabel', x: 540, y: 1044, w: 320, h: 92, radius: 0,
+          fill: '#ffffff', opacity: 1, stroke: { color: '#c9ced6', width: 3 }, corners: { size: 20, color: '#e4002b' } }),
+      T({ id: 'nameText', label: '名稱標籤文字', group: 'nameLabel', text: 'TenZ', x: 540, y: 1044, boxWidth: 320,
+          font: 'Oswald', weight: 700, size: 56, color: '#e4002b', uppercase: false }),
       // 主標題（坐落在下方銀色橫條上）
       T({ id: 'title', label: '主標題', text: '在這裡輸入主標題', x: 540, y: 1188, boxWidth: 960,
           font: 'Noto Sans TC', weight: 900, size: 88, color: '#ffffff', lineHeight: 1.05,

@@ -9,7 +9,7 @@ const TCAT_KEY = 'hrnews.templateCats';
 const SEED_KEY = 'hrnews.seedVer';
 const readTCats = () => { try { return JSON.parse(localStorage.getItem(TCAT_KEY) || '[]'); } catch (_) { return []; } };
 const writeTCats = (l) => localStorage.setItem(TCAT_KEY, JSON.stringify([...new Set(l.filter(Boolean))]));
-const SEED_VER = '8'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
+const SEED_VER = '9'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
 
 function read() {
   try {

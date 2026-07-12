@@ -248,6 +248,14 @@ export class Editor {
       ctx.lineWidth = (el.stroke.width || 2) * f;
       ctx.stroke();
     }
+    // 四角方塊（裝飾）：線（描邊）與方塊顏色是分開的
+    if (el.corners && el.corners.size > 0) {
+      const cs = el.corners.size * f;
+      ctx.fillStyle = el.corners.color || '#e4002b';
+      for (const [cxp, cyp] of [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]]) {
+        ctx.fillRect(cxp - cs / 2, cyp - cs / 2, cs, cs);
+      }
+    }
     ctx.restore();
   }
 

@@ -91,7 +91,7 @@ async function renderGallery() {
     const actions = h('div', { class: 'card-actions' },
       h('button', { class: 'icon-btn', title: '編輯模板', onclick: (e) => { e.stopPropagation(); openBuilder(tpl); } }, '✎'),
       h('button', { class: 'icon-btn', title: '複製一份', onclick: (e) => { e.stopPropagation(); duplicateToCustom(tpl); } }, '⧉'),
-      h('button', { class: 'icon-btn', title: '刪除模板', onclick: (e) => { e.stopPropagation(); if (confirm(`刪除模板「${tpl.name}」？`)) { store.remove(tpl.id); delRemote('template', tpl.id); renderGallery(); } } }, '🗑'));
+      h('button', { class: 'icon-btn', title: '刪除模板', onclick: (e) => { e.stopPropagation(); if (confirm(`刪除模板「${tpl.name}」？`)) { store.remove(tpl.id); delRemote('template', tpl.id); renderGallery(); syncNow(true); } } }, '🗑'));
     grid.append(h('div', { class: 'card', onclick: () => openPost(tpl) },
       img,
       actions,
@@ -113,6 +113,7 @@ function duplicateToCustom(tpl) {
   pushOne('template', copy.id, copy, copy.updatedAt);
   toast('已複製為自製模板 ✓');
   renderGallery();
+  syncNow(true);
 }
 
 function showView(id) {
@@ -312,6 +313,23 @@ function borderControls(el) {
   return wrap;
 }
 
+// 四角方塊（像名稱標籤那樣，四個角落各一個小方塊）；線（外框）與方塊顏色分開控制
+function cornerSquareControls(el) {
+  const on = !!(el.corners && el.corners.size > 0);
+  const chk = h('input', { type: 'checkbox', ...(on ? { checked: true } : {}), onchange: (e) => {
+    editor.update(el.id, { corners: e.target.checked
+      ? { size: (el.corners && el.corners.size) || 20, color: (el.corners && el.corners.color) || '#e4002b' } : null });
+    buildFillForm(); if (editor.selectedId === el.id) buildProps(editor.selected);
+  } });
+  const wrap = h('div', {}, h('label', { class: 'inline' }, chk, h('span', { class: 'hint-line' }, '四角方塊')));
+  if (on) {
+    wrap.append(slider('方塊大小', el.corners.size, 2, 80, 1, (v) => editor.update(el.id, { corners: { ...el.corners, size: v } })));
+    wrap.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '方塊顏色'),
+      h('input', { type: 'color', value: el.corners.color, oninput: (e) => editor.update(el.id, { corners: { ...el.corners, color: e.target.value } }) })));
+  }
+  return wrap;
+}
+
 // 邊角：方形 / 圓角 切換 + 圓角值（給色塊、圖片框用）
 function cornerControls(el, rebuild) {
   const rounded = (el.radius || 0) > 0;
@@ -345,6 +363,7 @@ function fieldGroup(el, isFixed = false) {
         h('input', { type: 'color', value: el.fill, oninput: (e) => editor.update(el.id, { fill: e.target.value }) })),
       cornerControls(el, buildFillForm),
       borderControls(el),
+      cornerSquareControls(el),
       h('button', { class: 'btn small', onclick: () => { editor.select(el.id); activateTab('props'); } }, '微調大小 / 位置'));
     return g;
   }
@@ -492,7 +511,7 @@ function buildProps(el) {
     const hS = slider('高度', Math.round(el.h), 10, D.height * 1.5, 2, (v) => editor.update(el.id, { h: v }));
     pane.append(h('label', { class: 'prop' }, h('span', {}, '底色'), color),
       cornerControls(el, () => buildProps(editor.selected)),
-      h('div', { class: 'group' }, h('div', { class: 'g-label' }, '外框線'), borderControls(el)),
+      h('div', { class: 'group' }, h('div', { class: 'g-label' }, '外框線 / 四角方塊'), borderControls(el), cornerSquareControls(el)),
       wS, hS, posX, posY, opacity);
     state.syncProps = () => { setSlider(wS, Math.round(el.w)); setSlider(hS, Math.round(el.h)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
   }
@@ -583,7 +602,8 @@ $('#addGradBtn').addEventListener('click', () => {
   buildFillForm();
 });
 $('#addTextBtn').addEventListener('click', () => {
-  editor.addElement(makeText({ label: '新文字', text: '輸入文字', x: state.doc.width / 2, y: state.doc.height / 2, size: 64 }));
+  // 預設：無外框、無空心（要外框自己在「文字外框」開）
+  editor.addElement(makeText({ label: '新文字', text: '輸入文字', x: state.doc.width / 2, y: state.doc.height / 2, size: 64, stroke: null, hollow: false }));
   buildFillForm();
 });
 $('#addImageBtn').addEventListener('click', () => {
@@ -612,6 +632,7 @@ $('#saveTplBtn').addEventListener('click', () => {
   toast('模板已儲存 ✓');
   showView('gallery');
   renderGallery();
+  syncNow(true);
 });
 
 // =============================================================
@@ -674,6 +695,7 @@ $('#restoreBtn').addEventListener('click', () => {
   const n = store.restoreDefaults();
   toast(n ? `已還原 ${n} 個預設模板 ✓` : '預設模板都在，無需還原');
   renderGallery();
+  if (n) syncNow(true);
 });
 $('#importBtn').addEventListener('click', () => $('#fileImport').click());
 $('#fileImport').addEventListener('change', (e) => {
@@ -1107,6 +1129,18 @@ renderGallery();
 // 若已設定並登入過，載入時自動同步
 updateSyncBtn();
 currentUser().then((u) => { state.user = u; updateSyncBtn(); if (u) syncNow(true); }).catch(() => {});
+
+// 切回這個分頁 / 視窗重新聚焦時，自動拉一次雲端（讓其他裝置的新增/刪除即時出現）
+let lastPull = 0;
+function pullIfIdle() {
+  if (!state.user) return;
+  const now = Date.now();
+  if (now - lastPull < 4000) return; // 節流，避免頻繁切換狂拉
+  lastPull = now;
+  syncNow(true);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullIfIdle(); });
+window.addEventListener('focus', pullIfIdle);
 
 // 加上 ?debug 可在 console 取用 editor（方便進階操作／測試），一般使用者不受影響。
 if (new URLSearchParams(location.search).has('debug')) window.__editor = editor;
