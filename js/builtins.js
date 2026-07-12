@@ -37,6 +37,7 @@ function T(o = {}) {
     lineHeight: o.lineHeight ?? 1.2,
     letterSpacing: o.letterSpacing ?? 0,
     uppercase: !!o.uppercase,
+    hollow: !!o.hollow, // 空心字：只畫外框、不填色
     stroke: o.stroke || null, // { color, width }
     shadow: o.shadow || null, // { angle, distance, blur, color, opacity }
     opacity: o.opacity ?? 1,
@@ -67,6 +68,8 @@ function I(o = {}) {
     opacity: o.opacity ?? 1,
     blendMode: o.blendMode || 'source-over', // 混合模式（canvas globalCompositeOperation）
     shadow: o.shadow || null,
+    flipH: !!o.flipH, // 水平翻轉
+    flipV: !!o.flipV, // 垂直翻轉
     hint: o.hint || '',
   };
 }

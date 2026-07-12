@@ -9,7 +9,7 @@
 // -----------------------------------------------------------------------------
 
 import { fontString, ensureFont, ensureDocFonts } from './fonts.js';
-import { loadImage, peekImage, clamp, hexToRgba } from './util.js';
+import { loadImage, peekImage, clamp, hexToRgba, uid, deepClone } from './util.js';
 
 const HANDLE = 30; // 縮放控制點大小（doc 座標）
 const HIT_PAD = 34; // 控制點觸控容錯
@@ -180,27 +180,25 @@ export class Editor {
       if (el.align === 'right') return boxRight - lw;
       return el.x * f - lw / 2;
     };
-    const pass = (withStroke) => {
+    const paint = (doStroke, doFill) => {
       L.lines.forEach((line, i) => {
         let x = startX(i);
         const y = top + i * L.lineStep * f;
         for (const ch of line) {
-          if (withStroke && el.stroke) ctx.strokeText(ch, x, y);
-          ctx.fillText(ch, x, y);
+          if (doStroke) ctx.strokeText(ch, x, y);
+          if (doFill) ctx.fillText(ch, x, y);
           x += ctx.measureText(ch).width + ls;
         }
       });
     };
-    // 陰影 pass（只畫填色投影，之後正式 pass 會覆蓋，確保單一乾淨陰影）
+    const hasStroke = el.stroke && el.stroke.width > 0;
+    const hollow = el.hollow && hasStroke; // 空心字：只留外框（需要有外框線）
     ctx.fillStyle = el.color;
-    if (applyShadow(ctx, el.shadow, f)) { pass(false); clearShadow(ctx); }
-    // 正式 pass：描邊 + 填色
-    if (el.stroke && el.stroke.width > 0) {
-      ctx.lineJoin = 'round';
-      ctx.strokeStyle = el.stroke.color;
-      ctx.lineWidth = el.stroke.width * f;
-    }
-    pass(true);
+    if (hasStroke) { ctx.lineJoin = 'round'; ctx.strokeStyle = el.stroke.color; ctx.lineWidth = el.stroke.width * f; }
+    // 陰影 pass（實心→填色投影；空心→外框投影）
+    if (applyShadow(ctx, el.shadow, f)) { paint(hollow, !hollow); clearShadow(ctx); }
+    // 正式 pass
+    paint(hasStroke, !hollow);
     ctx.restore();
   }
 
@@ -224,6 +222,11 @@ export class Editor {
     ctx.save();
     ctx.globalAlpha = el.opacity ?? 1;
     if (el.blendMode && el.blendMode !== 'source-over') ctx.globalCompositeOperation = el.blendMode;
+    if (el.flipH || el.flipV) { // 水平/垂直翻轉（以中心鏡射）
+      ctx.translate(el.x * f, el.y * f);
+      ctx.scale(el.flipH ? -1 : 1, el.flipV ? -1 : 1);
+      ctx.translate(-el.x * f, -el.y * f);
+    }
     if (el.fit === 'cover' || el.radius) {
       roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
       ctx.clip();
@@ -512,9 +515,61 @@ export class Editor {
     this.render();
     this.onChange();
   }
+  bringToFront(id) {
+    const els = this.doc.elements, i = els.findIndex((e) => e.id === id);
+    if (i < 0) return; els.push(els.splice(i, 1)[0]); this.render(); this.onChange();
+  }
+  sendToBack(id) {
+    const els = this.doc.elements, i = els.findIndex((e) => e.id === id);
+    if (i < 0) return; els.unshift(els.splice(i, 1)[0]); this.render(); this.onChange();
+  }
+  // 對齊畫布中心（axis: 'x' 水平置中 / 'y' 垂直置中）
+  alignCenter(id, axis) {
+    const el = this.el(id);
+    if (!el) return;
+    const b = this.bounds(el);
+    if (axis === 'x') el.x += this.doc.width / 2 - b.cx;
+    else el.y += this.doc.height / 2 - b.cy;
+    this.render();
+    this.onChange();
+  }
+  // 複製選取物件（往右下偏移一點）
+  duplicateElement(id) {
+    const el = this.el(id);
+    if (!el) return null;
+    const copy = deepClone(el);
+    copy.id = uid('el');
+    copy.x = (copy.x || 0) + 24;
+    copy.y = (copy.y || 0) + 24;
+    copy.fixed = false; copy.locked = false;
+    const i = this.doc.elements.findIndex((e) => e.id === id);
+    this.doc.elements.splice(i + 1, 0, copy);
+    this.select(copy.id);
+    this.onChange();
+    return copy;
+  }
+  // 貼上一份元素資料（給複製/貼上）
+  pasteElement(data) {
+    const copy = deepClone(data);
+    copy.id = uid('el');
+    copy.x = (copy.x || this.doc.width / 2) + 24;
+    copy.y = (copy.y || this.doc.height / 2) + 24;
+    copy.fixed = false; copy.locked = false; copy.hidden = false;
+    this.doc.elements.push(copy);
+    this.select(copy.id);
+    this.onChange();
+    return copy;
+  }
   addElement(el) {
     this.doc.elements.push(el);
     this.select(el.id);
+    this.onChange();
+  }
+  // 一次加入多個元素（元件），並確保圖片載入後再渲染
+  async addComponent(els) {
+    for (const el of els) { el.id = el.id || uid('el'); this.doc.elements.push(el); }
+    await this.preload();
+    this.select(els[els.length - 1].id);
     this.onChange();
   }
   removeElement(id) {

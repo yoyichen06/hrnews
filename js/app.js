@@ -517,6 +517,9 @@ function strokeControls(el) {
     g.append(slider('外框粗細', el.stroke.width, 0, 40, 1, (v) => editor.update(el.id, { stroke: { ...el.stroke, width: v } })));
     g.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '外框顏色'),
       h('input', { type: 'color', value: el.stroke.color, oninput: (e) => editor.update(el.id, { stroke: { ...el.stroke, color: e.target.value } }) })));
+    g.append(h('label', { class: 'inline' },
+      h('input', { type: 'checkbox', ...(el.hollow ? { checked: true } : {}), onchange: (e) => editor.update(el.id, { hollow: e.target.checked }) }),
+      h('span', { class: 'hint-line' }, '空心字（只留外框）')));
   }
   return g;
 }
@@ -541,14 +544,24 @@ function shadowControls(el) {
   return g;
 }
 
-// 圖層順序 + 移除（移除僅在自製/編輯模板時提供）
+// 排列 / 對齊 / 翻轉 / 圖層順序 / 複製 / 刪除
 function appendLayerControls(pane, el) {
-  pane.append(h('hr'), h('div', { class: 'mini-actions' },
-    h('button', { class: 'btn small', onclick: () => editor.moveLayer(el.id, 1) }, '上移一層'),
-    h('button', { class: 'btn small', onclick: () => editor.moveLayer(el.id, -1) }, '下移一層')));
-  if (state.mode === 'build') {
-    pane.append(h('button', { class: 'btn small danger block', onclick: () => { editor.removeElement(el.id); buildFillForm(); } }, '移除此物件'));
+  pane.append(h('hr'));
+  pane.append(h('div', { class: 'mini-actions' },
+    h('button', { class: 'btn small', onclick: () => editor.alignCenter(el.id, 'x') }, '水平置中'),
+    h('button', { class: 'btn small', onclick: () => editor.alignCenter(el.id, 'y') }, '垂直置中'),
+    h('button', { class: 'btn small', onclick: () => { editor.duplicateElement(el.id); refreshAfterEdit(); } }, '複製')));
+  if (el.type === 'image') {
+    pane.append(h('div', { class: 'mini-actions' },
+      h('button', { class: 'btn small' + (el.flipH ? ' primary' : ''), onclick: () => { editor.update(el.id, { flipH: !el.flipH }); buildProps(editor.selected); } }, '水平翻轉'),
+      h('button', { class: 'btn small' + (el.flipV ? ' primary' : ''), onclick: () => { editor.update(el.id, { flipV: !el.flipV }); buildProps(editor.selected); } }, '垂直翻轉')));
   }
+  pane.append(h('div', { class: 'mini-actions' },
+    h('button', { class: 'btn small', onclick: () => editor.moveLayer(el.id, 1) }, '上移一層'),
+    h('button', { class: 'btn small', onclick: () => editor.moveLayer(el.id, -1) }, '下移一層'),
+    h('button', { class: 'btn small', onclick: () => editor.bringToFront(el.id) }, '移到最上'),
+    h('button', { class: 'btn small', onclick: () => editor.sendToBack(el.id) }, '移到最下')));
+  pane.append(h('button', { class: 'btn small danger block', onclick: () => { editor.removeElement(el.id); refreshAfterEdit(); } }, '刪除此物件'));
 }
 
 function setSlider(row, v) { if (row && row._input) { row._input.value = v; row._val.textContent = row._fmt(v); } }
@@ -720,6 +733,12 @@ $('#assetSideClose').addEventListener('click', () => $('#assetSide').classList.a
 
 // 點素材：套到選取中的圖片欄位，否則在畫布新增一個圖片
 async function useAsset(a) {
+  if (a.component) { // 元件：一次加入多個可編輯元素
+    await editor.addComponent(a.component(state.doc.width / 2, state.doc.height / 2));
+    buildFillForm();
+    toast('已加入元件（文字可改）');
+    return;
+  }
   const sel = editor.selected;
   if (sel && sel.type === 'image') {
     await editor.replaceImage(sel.id, { src: a.src, w: a.w, h: a.h });
@@ -1004,19 +1023,33 @@ async function redo() {
 function isTypingTarget(t) {
   return t && (t.tagName === 'TEXTAREA' || t.isContentEditable || (t.tagName === 'INPUT' && /^(text|number|search|url|email|password)$/.test(t.type)));
 }
+let clipboard = null;
+const inEditor = () => !$('#editorView').classList.contains('hidden');
+function refreshAfterEdit() { buildFillForm(); if (!$('#layersPanel').classList.contains('hidden')) renderLayers(); }
+
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey) {
-    if (isTypingTarget(e.target)) return; // 文字欄位內走瀏覽器原生復原
+    if (isTypingTarget(e.target)) return; // 文字欄位內走瀏覽器原生行為
     const k = e.key.toLowerCase();
     if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
     else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); }
+    else if (k === 'd' && inEditor()) { e.preventDefault(); const s = editor.selected; if (s) { editor.duplicateElement(s.id); refreshAfterEdit(); } }
+    else if (k === 'c' && inEditor()) { const s = editor.selected; if (s) clipboard = deepClone(s); }
+    else if (k === 'v' && inEditor()) { if (clipboard) { e.preventDefault(); editor.pasteElement(clipboard); refreshAfterEdit(); } }
     return;
   }
-  // Delete / Backspace 刪除選取的物件
-  if ((e.key === 'Delete' || e.key === 'Backspace') && !isTypingTarget(e.target)) {
-    if ($('#editorView').classList.contains('hidden')) return;
+  if (isTypingTarget(e.target) || !inEditor()) return;
+  // Delete / Backspace 刪除
+  if (e.key === 'Delete' || e.key === 'Backspace') {
     const sel = editor.selected;
-    if (sel) { e.preventDefault(); editor.removeElement(sel.id); buildFillForm(); renderLayers(); }
+    if (sel) { e.preventDefault(); editor.removeElement(sel.id); refreshAfterEdit(); }
+    return;
+  }
+  // 方向鍵微移（Shift = 一次 10px）
+  const nudge = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+  if (nudge) {
+    const sel = editor.selected;
+    if (sel) { e.preventDefault(); const s = e.shiftKey ? 10 : 1; editor.update(sel.id, { x: sel.x + nudge[0] * s, y: sel.y + nudge[1] * s }); }
   }
 });
 
