@@ -6,6 +6,12 @@
   font-display: swap;
 }
 @font-face {
+  font-family: 'Minecraft';
+  src: url('../fonts/minecraft-regular.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
   font-family: 'Foundry Gridnik';
   src: url('../fonts/foundry-gridnik-extrabold.ttf') format('truetype');
   font-weight: 800;

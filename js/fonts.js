@@ -13,6 +13,7 @@ export const FONTS = [
   // 使用者上傳的字型（僅英數，中文會自動退回思源黑體）
   { family: 'Foundry Gridnik', label: 'Foundry Gridnik（英數）', weights: [800],  latin: true },
   { family: 'Minecraft Ten',   label: 'Minecraft Ten（英數）',   weights: [400, 700, 900],  latin: true },
+  { family: 'Minecraft',       label: 'Minecraft Regular（英數）', weights: [400, 700],     latin: true },
 ];
 
 // CSS font stack —— 中文字型後面都補上思源黑體，避免缺字時掉成系統字型造成偏差。
