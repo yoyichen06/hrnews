@@ -517,6 +517,7 @@ function buildProps(el) {
       h('label', { class: 'prop' }, h('span', {}, '混合模式'), blend),
       sizeS, cornerControls(el, () => buildProps(editor.selected)), posX, posY, opacity,
     );
+    if (el.src) pane.append(cropControls(el));
     state.syncProps = () => { setSlider(sizeS, Math.round(el.w)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
   } else if (el.type === 'shape') {
     const color = h('input', { type: 'color', value: el.fill, oninput: (e) => editor.update(el.id, { fill: e.target.value }) });
@@ -560,6 +561,25 @@ function strokeControls(el) {
       h('input', { type: 'checkbox', ...(el.hollow ? { checked: true } : {}), onchange: (e) => editor.update(el.id, { hollow: e.target.checked }) }),
       h('span', { class: 'hint-line' }, '空心字（只留外框）')));
   }
+  return g;
+}
+
+// 圖片裁切：從上／下／左／右各裁掉多少（%）
+function cropControls(el) {
+  const c = el.crop || { top: 0, right: 0, bottom: 0, left: 0 };
+  const on = !!((c.top || 0) || (c.right || 0) || (c.bottom || 0) || (c.left || 0));
+  const setC = (patch) => editor.update(el.id, { crop: { top: 0, right: 0, bottom: 0, left: 0, ...(el.crop || {}), ...patch } });
+  const pct = (v) => Math.round(v * 100) + '%';
+  const g = h('details', { class: 'group', ...(on ? { open: true } : {}) }, h('summary', {}, '裁切（上下左右）'));
+  g.append(
+    slider('上', c.top || 0, 0, 0.9, 0.01, (v) => setC({ top: v }), pct),
+    slider('下', c.bottom || 0, 0, 0.9, 0.01, (v) => setC({ bottom: v }), pct),
+    slider('左', c.left || 0, 0, 0.9, 0.01, (v) => setC({ left: v }), pct),
+    slider('右', c.right || 0, 0, 0.9, 0.01, (v) => setC({ right: v }), pct),
+    h('div', { class: 'mini-actions' },
+      h('button', { class: 'btn small', onclick: () => { editor.update(el.id, { crop: null }); buildProps(editor.selected); } }, '重設裁切')),
+    h('div', { class: 'hint-line' }, '想讓裁切後的圖填滿圖框，把上面「顯示方式」設成「填滿裁切」。'),
+  );
   return g;
 }
 

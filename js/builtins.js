@@ -64,6 +64,7 @@ function I(o = {}) {
     w: o.w ?? 400,
     h: o.h ?? 400,
     fit: o.fit || 'contain', // contain / cover
+    crop: o.crop || null, // { top, right, bottom, left } 從原圖四邊各裁掉的比例 0~0.95
     radius: o.radius ?? 0,
     opacity: o.opacity ?? 1,
     blendMode: o.blendMode || 'source-over', // 混合模式（canvas globalCompositeOperation）

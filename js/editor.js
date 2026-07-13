@@ -206,17 +206,22 @@ export class Editor {
     const img = el.src ? peekImage(el.src) : null;
     if (!img) return; // 空圖片框不畫在畫布上（下載乾淨、不會有殘影）
     const bx = (el.x - el.w / 2) * f, by = (el.y - el.h / 2) * f, bw = el.w * f, bh = el.h * f;
-    const scale = el.fit === 'cover'
-      ? Math.max(bw / img.naturalWidth, bh / img.naturalHeight)
-      : Math.min(bw / img.naturalWidth, bh / img.naturalHeight);
-    const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+    // 裁切：從原圖四邊各裁掉一定比例，得到來源子矩形（sx,sy,sW,sH）
+    const c = el.crop || null;
+    const cl = clamp(c ? c.left || 0 : 0, 0, 0.95), cr = clamp(c ? c.right || 0 : 0, 0, 0.95);
+    const ct = clamp(c ? c.top || 0 : 0, 0, 0.95), cb = clamp(c ? c.bottom || 0 : 0, 0, 0.95);
+    const sx = img.naturalWidth * cl, sy = img.naturalHeight * ct;
+    const sW = img.naturalWidth * Math.max(0.02, 1 - cl - cr);
+    const sH = img.naturalHeight * Math.max(0.02, 1 - ct - cb);
+    const scale = el.fit === 'cover' ? Math.max(bw / sW, bh / sH) : Math.min(bw / sW, bh / sH);
+    const dw = sW * scale, dh = sH * scale;
     const ix = el.x * f - dw / 2, iy = el.y * f - dh / 2;
     // 陰影：contain（去背圖/LOGO）用圖片本身投影；cover（照片）用框形投影。
     if (el.shadow && el.shadow.on) {
       ctx.save();
       applyShadow(ctx, el.shadow, f);
       if (el.fit === 'cover') { roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f); ctx.fillStyle = '#000'; ctx.fill(); }
-      else ctx.drawImage(img, ix, iy, dw, dh);
+      else ctx.drawImage(img, sx, sy, sW, sH, ix, iy, dw, dh);
       ctx.restore();
     }
     ctx.save();
@@ -231,7 +236,7 @@ export class Editor {
       roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
       ctx.clip();
     }
-    ctx.drawImage(img, ix, iy, dw, dh);
+    ctx.drawImage(img, sx, sy, sW, sH, ix, iy, dw, dh);
     ctx.restore();
   }
 
