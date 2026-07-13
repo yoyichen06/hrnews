@@ -601,8 +601,9 @@ export class Editor {
     this.onChange();
     return copy;
   }
-  addElement(el) {
+  async addElement(el) {
     this.doc.elements.push(el);
+    if (el.type === 'image' && el.src) await this.preload(); // 有圖先載入再畫，否則第一次會是空白
     this.select(el.id);
     this.onChange();
   }

@@ -630,6 +630,22 @@ $('#addImageBtn').addEventListener('click', () => {
   editor.addElement(makeImage({ label: '圖片框', x: state.doc.width / 2, y: state.doc.height / 2, w: 400, h: 400 }));
   buildFillForm();
 });
+// 直接上傳一張圖 / LOGO PNG，選好檔就放到畫布中央（依原圖比例縮到適當大小）
+$('#addLogoBtn').addEventListener('click', () => {
+  pickImage((d) => {
+    const ratio = (d.w && d.h) ? d.h / d.w : 1;
+    let w = Math.min(560, state.doc.width * 0.6);
+    let hh = w * ratio;
+    const maxH = state.doc.height * 0.6;
+    if (hh > maxH) { hh = maxH; w = hh / ratio; }
+    const el = makeImage({ label: 'LOGO / 圖片', x: state.doc.width / 2, y: state.doc.height / 2, w: Math.round(w), h: Math.round(hh), fit: 'contain' });
+    el.src = d.src;
+    editor.addElement(el);
+    editor.select(el.id);
+    buildFillForm();
+    toast('已加入圖片 ✓');
+  });
+});
 const SHAPE_META = {
   rect: { label: '方形', w: 400, h: 400 }, ellipse: { label: '圓形', w: 400, h: 400 },
   triangle: { label: '三角形', w: 400, h: 360 }, polygon: { label: '多邊形', w: 400, h: 400 },
