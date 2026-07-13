@@ -850,8 +850,10 @@ async function renderAssetSide() {
   const shown = list.filter((a) => assetCatState.current === '全部' || (a.category || '未分類') === assetCatState.current);
   if (!shown.length) { grid.append(h('p', { class: 'hint-line' }, '這個分類還沒有素材，點「上傳素材」加入。')); return; }
   for (const a of shown) {
-    grid.append(h('div', { class: 'asset-card pickable', onclick: () => useAsset(a) },
-      h('img', { src: a.src, alt: a.name || '素材' }),
+    const nm = (a.name || '素材').replace(/\.(png|jpe?g|webp|gif|svg)$/i, '');
+    grid.append(h('div', { class: 'asset-card pickable', title: nm, onclick: () => useAsset(a) },
+      h('img', { src: a.src, alt: nm, loading: 'lazy' }),
+      h('div', { class: 'aname' }, nm),
       a.builtin
         ? h('span', { class: 'abuiltin', title: a.name }, '內建')
         : h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await assets.remove(a.id); delRemote('asset', a.id); renderAssetSide(); } }, '🗑')));
