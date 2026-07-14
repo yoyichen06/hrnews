@@ -86,8 +86,9 @@ function S(o = {}) {
     hidden: !!o.hidden,
     group: o.group || null,
     rotation: o.rotation ?? 0,
-    shape: o.shape || 'rect', // rect / ellipse / triangle / polygon / star / line
+    shape: o.shape || 'rect', // rect / ellipse / triangle / polygon / star / line / arrow
     sides: o.sides ?? 6,       // polygon 邊數 / star 角數
+    points: o.points || null,  // 自訂多邊形（0~1 相對座標），有值就以此為形狀
     x: o.x ?? 540,
     y: o.y ?? 540,
     w: o.w ?? 600,
@@ -312,6 +313,44 @@ export const BUILTIN_TEMPLATES = [
       // 主標題（置底，可留空）
       T({ id: 'title', label: '主標題', text: '地圖輪替', x: 540, y: 1180, boxWidth: 960,
           font: 'Noto Sans TC', weight: 900, size: 84, color: '#ffffff', stroke: { color: '#000000', width: 5 } }),
+    ],
+  },
+  {
+    id: 'ability-buff-nerf',
+    name: '技能增強 / 削弱（BUFF / NERF）',
+    category: '特戰英豪',
+    builtin: true,
+    width: 1080,
+    height: 1350,
+    bgColor: '#0b0d12',
+    elements: [
+      ...bgTrio(1080, 1350, { color: '#05070c', topSize: 0.2, topOp: 0.8, botSize: 0.5, botOp: 0.92 }),
+      // 固定 HR 外框（角落方塊 + 兔子 + VAL NEWS + FOLLOW US + H&R）
+      I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
+          x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: VAL_FRAME }),
+      // 中間資訊框：左側斜角色塊（可改色）
+      S({ id: 'bannerTab', label: '左側斜角色塊（可改色）', editable: true, x: 252, y: 1040, w: 170, h: 120,
+          points: [[0.0, 0.5], [0.28, 0.0], [1.0, 0.0], [1.0, 1.0], [0.28, 1.0]], fill: '#6d28d9', opacity: 1 }),
+      // 主資訊框（可改色）
+      S({ id: 'bannerBox', label: '資訊框（可改色）', editable: true, x: 608, y: 1040, w: 600, h: 112, radius: 10,
+          fill: '#ffffff', opacity: 1 }),
+      // 左側技能 / 武器圖示（可上傳替換）
+      I({ id: 'skillIcon', label: '技能 / 武器圖示', x: 250, y: 1035, w: 122, h: 86, fit: 'contain',
+          hint: '上傳技能 / 武器圖示（去背 PNG，可留空）' }),
+      // 箭頭（可改顏色 / 位置；要向上就把旋轉設 180°）
+      S({ id: 'arrow', label: '箭頭（可改色 / 位置）', editable: true, shape: 'arrow', x: 402, y: 1040, w: 46, h: 64,
+          fill: '#17171a', opacity: 1 }),
+      // 說明文字（可換行：技能名 + 說明）
+      T({ id: 'desc', label: '說明文字', text: '第二發彈道擴散增加 0 > 2.25', x: 662, y: 1040, boxWidth: 470,
+          font: 'Noto Sans TC', weight: 800, size: 33, color: '#141414', lineHeight: 1.15 }),
+      // 右上角 NERF / BUFF 標籤
+      S({ id: 'tagBox', label: 'NERF / BUFF 底框（可改色）', editable: true, x: 842, y: 980, w: 118, h: 46, radius: 3,
+          fill: '#141414', opacity: 1 }),
+      T({ id: 'tagText', label: 'NERF / BUFF 文字', text: 'NERF', x: 842, y: 980, boxWidth: 200,
+          font: 'Oswald', weight: 700, size: 34, color: '#ffffff', letterSpacing: 2, uppercase: true }),
+      // 主標題
+      T({ id: 'title', label: '主標題', text: '逃犯首次削弱', x: 540, y: 1218, boxWidth: 980,
+          font: 'Noto Sans TC', weight: 900, size: 96, color: '#ffffff', stroke: { color: '#000000', width: 6 } }),
     ],
   },
 ];

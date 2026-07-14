@@ -11,7 +11,7 @@
     href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;700;900&family=Oswald:wght@400;500;700&family=Rajdhani:wght@500;700&family=Teko:wght@400;500;700&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="./css/style.css?v=20260715" />
+  <link rel="stylesheet" href="./css/style.css?v=20260716" />
 </head>
 <body>
   <header class="app-header">
@@ -107,8 +107,8 @@
         </section>
 
         <!-- 新增元素（做貼文 / 編輯模板都可用）-->
-        <section id="addTools" class="builder-tools">
-          <h3>新增元素</h3>
+        <details id="addTools" class="tool-details" open>
+          <summary>＋ 新增元素（文字 / 圖片 / 向量圖形）</summary>
           <div class="add-row">
             <button id="addTextBtn" class="btn small">＋ 文字框</button>
             <button id="addLogoBtn" class="btn small primary">＋ 圖片 / LOGO</button>
@@ -124,9 +124,9 @@
             <button class="btn small addShapeBtn" data-shape="polygon" title="多邊形">⬢</button>
             <button class="btn small addShapeBtn" data-shape="star" title="星形">★</button>
             <button class="btn small addShapeBtn" data-shape="line" title="線">／</button>
+            <button class="btn small addShapeBtn" data-shape="arrow" title="箭頭">↓</button>
           </div>
-          <hr />
-        </section>
+        </details>
 
         <div class="tabs">
           <button class="tab active" data-tab="fill">快速填寫</button>
@@ -147,6 +147,6 @@
   <div id="modalRoot"></div>
   <div id="toast" class="toast" hidden></div>
 
-  <script type="module" src="./js/app.js?v=20260715"></script>
+  <script type="module" src="./js/app.js?v=20260716"></script>
 </body>
 </html>

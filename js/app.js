@@ -393,7 +393,7 @@ function fieldGroup(el, isFixed = false) {
 
 // 背景設定：背景圖 + 疊加圖層(混合模式/不透明度) + 上下漸層遮罩
 function buildBackgroundGroup(bgEl, ovEl, grads) {
-  const g = h('details', { class: 'group', open: true }, h('summary', {}, '背景設定 ', h('span', { class: 'badge' }, '背景 / 疊加 / 遮罩')));
+  const g = h('details', { class: 'group' }, h('summary', {}, '背景設定 ', h('span', { class: 'badge' }, '背景 / 疊加 / 遮罩')));
 
   if (bgEl) {
     g.append(h('div', { class: 'hint-line' }, '背景圖片'));
@@ -524,7 +524,7 @@ function buildProps(el) {
     const wS = slider('寬度', Math.round(el.w), 10, D.width * 1.5, 2, (v) => editor.update(el.id, { w: v }));
     const hS = slider('高度', Math.round(el.h), 10, D.height * 1.5, 2, (v) => editor.update(el.id, { h: v }));
     const shapeSel = h('select', { onchange: (e) => { editor.update(el.id, { shape: e.target.value }); buildProps(editor.selected); } });
-    for (const [v, t] of [['rect', '方形'], ['ellipse', '圓形 / 橢圓'], ['triangle', '三角形'], ['polygon', '多邊形'], ['star', '星形'], ['line', '線']])
+    for (const [v, t] of [['rect', '方形'], ['ellipse', '圓形 / 橢圓'], ['triangle', '三角形'], ['polygon', '多邊形'], ['star', '星形'], ['line', '線'], ['arrow', '箭頭']])
       shapeSel.append(h('option', { value: v, ...((el.shape || 'rect') === v ? { selected: true } : {}) }, t));
     pane.append(h('label', { class: 'prop' }, h('span', {}, '圖形'), shapeSel),
       h('label', { class: 'prop' }, h('span', {}, '底色'), color));
@@ -670,6 +670,7 @@ const SHAPE_META = {
   rect: { label: '方形', w: 400, h: 400 }, ellipse: { label: '圓形', w: 400, h: 400 },
   triangle: { label: '三角形', w: 400, h: 360 }, polygon: { label: '多邊形', w: 400, h: 400 },
   star: { label: '星形', w: 400, h: 400 }, line: { label: '線', w: 500, h: 8 },
+  arrow: { label: '箭頭', w: 200, h: 260 },
 };
 document.querySelectorAll('.addShapeBtn').forEach((btn) => btn.addEventListener('click', () => {
   const t = btn.dataset.shape || 'rect';
@@ -798,7 +799,7 @@ function openModal(title, headActions = []) {
 //  素材庫（左側面板 + 自訂分類，IndexedDB）
 // =============================================================
 const ACAT_KEY = 'hrnews.assetCats';
-const ASSET_PAGE_SIZE = 8; // 一頁顯示幾張（每張都完整顯示、好辨識）
+const ASSET_PAGE_SIZE = 12; // 一頁顯示幾張（每張都完整顯示、好辨識）
 const assetCatState = { current: '全部', page: 0 };
 const readAssetCats = () => { try { return JSON.parse(localStorage.getItem(ACAT_KEY) || '[]'); } catch (_) { return []; } };
 const writeAssetCats = (l) => localStorage.setItem(ACAT_KEY, JSON.stringify(l));

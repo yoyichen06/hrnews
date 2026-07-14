@@ -245,6 +245,18 @@ export class Editor {
     const cx = bx + bw / 2, cy = by + bh / 2, rx = bw / 2, ry = bh / 2;
     const type = el.shape || 'rect';
     ctx.beginPath();
+    // 自訂多邊形：points 是 0~1 的相對座標陣列（可做旗幟/斜角框等任意形狀）
+    if (Array.isArray(el.points) && el.points.length >= 3) {
+      el.points.forEach(([px, py], i) => { const X = bx + px * bw, Y = by + py * bh; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+      ctx.closePath();
+      return;
+    }
+    if (type === 'arrow') { // 向下箭頭（要向上就旋轉 180°）
+      const pts = [[0.32, 0], [0.68, 0], [0.68, 0.55], [1, 0.55], [0.5, 1], [0, 0.55], [0.32, 0.55]];
+      pts.forEach(([px, py], i) => { const X = bx + px * bw, Y = by + py * bh; i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); });
+      ctx.closePath();
+      return;
+    }
     if (type === 'ellipse') {
       ctx.ellipse(cx, cy, Math.abs(rx), Math.abs(ry), 0, 0, Math.PI * 2);
       ctx.closePath();
@@ -285,7 +297,7 @@ export class Editor {
       ctx.stroke();
     }
     // 四角方塊（裝飾）：線（描邊）與方塊顏色是分開的（僅方形適用）
-    if (el.corners && el.corners.size > 0 && (!el.shape || el.shape === 'rect')) {
+    if (el.corners && el.corners.size > 0 && (!el.shape || el.shape === 'rect') && !el.points) {
       const cs = el.corners.size * f;
       ctx.fillStyle = el.corners.color || '#e4002b';
       for (const [cxp, cyp] of [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]]) {
