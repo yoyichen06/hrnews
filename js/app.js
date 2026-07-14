@@ -798,7 +798,8 @@ function openModal(title, headActions = []) {
 //  素材庫（左側面板 + 自訂分類，IndexedDB）
 // =============================================================
 const ACAT_KEY = 'hrnews.assetCats';
-const assetCatState = { current: '全部' };
+const ASSET_PAGE_SIZE = 8; // 一頁顯示幾張（每張都完整顯示、好辨識）
+const assetCatState = { current: '全部', page: 0 };
 const readAssetCats = () => { try { return JSON.parse(localStorage.getItem(ACAT_KEY) || '[]'); } catch (_) { return []; } };
 const writeAssetCats = (l) => localStorage.setItem(ACAT_KEY, JSON.stringify(l));
 
@@ -858,18 +859,23 @@ async function renderAssetSide() {
   catBox.innerHTML = '';
   for (const c of cats) {
     catBox.append(h('button', { class: 'chip' + (assetCatState.current === c ? ' active' : ''),
-      onclick: () => { assetCatState.current = c; renderAssetSide(); } }, c));
+      onclick: () => { assetCatState.current = c; assetCatState.page = 0; renderAssetSide(); } }, c));
   }
   catBox.append(h('button', { class: 'chip addcat', title: '新增分類', onclick: () => {
     const name = (prompt('新增素材分類名稱：') || '').trim();
-    if (name && !userCats.includes(name) && name !== '全部') { writeAssetCats([...userCats, name]); assetCatState.current = name; renderAssetSide(); }
+    if (name && !userCats.includes(name) && name !== '全部') { writeAssetCats([...userCats, name]); assetCatState.current = name; assetCatState.page = 0; renderAssetSide(); }
   } }, '＋分類'));
-  // 素材格
+  // 素材格（分頁）
   const grid = $('#assetSideGrid');
-  grid.innerHTML = '';
+  const pager = $('#assetPager');
+  grid.innerHTML = ''; pager.innerHTML = '';
   const shown = list.filter((a) => assetCatState.current === '全部' || (a.category || '未分類') === assetCatState.current);
   if (!shown.length) { grid.append(h('p', { class: 'hint-line' }, '這個分類還沒有素材，點「上傳素材」加入。')); return; }
-  for (const a of shown) {
+  const totalPages = Math.max(1, Math.ceil(shown.length / ASSET_PAGE_SIZE));
+  assetCatState.page = Math.min(Math.max(0, assetCatState.page), totalPages - 1);
+  const startIdx = assetCatState.page * ASSET_PAGE_SIZE;
+  const pageItems = shown.slice(startIdx, startIdx + ASSET_PAGE_SIZE);
+  for (const a of pageItems) {
     const nm = (a.name || '素材').replace(/\.(png|jpe?g|webp|gif|svg)$/i, '');
     grid.append(h('div', { class: 'asset-card pickable', title: nm, onclick: () => useAsset(a) },
       h('img', { src: a.src, alt: nm, loading: 'lazy' }),
@@ -877,6 +883,13 @@ async function renderAssetSide() {
       a.builtin
         ? h('span', { class: 'abuiltin', title: a.name }, '內建')
         : h('button', { class: 'adel', title: '刪除', onclick: async (e) => { e.stopPropagation(); await assets.remove(a.id); delRemote('asset', a.id); renderAssetSide(); } }, '🗑')));
+  }
+  // 分頁控制（只有超過一頁才顯示）
+  if (totalPages > 1) {
+    pager.append(
+      h('button', { class: 'btn small', ...(assetCatState.page === 0 ? { disabled: true } : {}), onclick: () => { assetCatState.page--; renderAssetSide(); } }, '◀'),
+      h('span', { class: 'hint-line' }, `第 ${assetCatState.page + 1} / ${totalPages} 頁（共 ${shown.length} 個）`),
+      h('button', { class: 'btn small', ...(assetCatState.page >= totalPages - 1 ? { disabled: true } : {}), onclick: () => { assetCatState.page++; renderAssetSide(); } }, '▶'));
   }
 }
 function initAssetSide() {
