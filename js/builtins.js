@@ -328,13 +328,13 @@ export const BUILTIN_TEMPLATES = [
       // 固定 HR 外框（角落方塊 + 兔子 + VAL NEWS + FOLLOW US + H&R）
       I({ id: 'frame', role: 'frame', label: 'HR 外框 / LOGO（固定）', fixed: true, replaceable: false,
           x: 540, y: 675, w: 1080, h: 1350, fit: 'contain', src: VAL_FRAME }),
-      // 資訊條（整條，左邊斜角）—— 可改色
-      S({ id: 'bannerBar', label: '資訊條（可改色）', editable: true, x: 566, y: 1054, w: 828, h: 150,
-          points: [[0.04, 0], [1, 0], [1, 1], [0, 1]], fill: '#b57fe0', opacity: 1,
+      // 資訊條主體（紫色，右段）—— 可改色
+      S({ id: 'bannerBar', label: '資訊條（可改色）', editable: true, x: 672, y: 1054, w: 620, h: 150,
+          fill: '#b57fe0', opacity: 1, stroke: { color: '#efe3fb', width: 3 } }),
+      // 左側圖示外框（斜角、透明，只有外框沒有填色）
+      S({ id: 'bannerTab', label: '左側圖示外框（透明）', editable: true, x: 256, y: 1054, w: 224, h: 150,
+          points: [[0.16, 0], [1, 0], [1, 1], [0, 1]], noFill: true, fill: '#231d3c', opacity: 1,
           stroke: { color: '#efe3fb', width: 3 } }),
-      // 左側深色圖示區（斜角）—— 可改色
-      S({ id: 'bannerTab', label: '左側圖示色塊（可改色）', editable: true, x: 258, y: 1054, w: 220, h: 150,
-          points: [[0.17, 0], [1, 0], [1, 1], [0, 1]], fill: '#231d3c', opacity: 1 }),
       // 左側技能 / 武器圖示（可上傳替換）
       I({ id: 'skillIcon', label: '技能 / 武器圖示', x: 252, y: 1052, w: 128, h: 104, fit: 'contain',
           hint: '上傳技能 / 武器圖示（去背 PNG，可留空）' }),
@@ -342,15 +342,15 @@ export const BUILTIN_TEMPLATES = [
       S({ id: 'arrow', label: '箭頭（可改色 / 位置）', editable: true, shape: 'arrow', x: 452, y: 1054, w: 62, h: 108,
           fill: '#ffffff', opacity: 1 }),
       // 技能名稱（白字）
-      T({ id: 'skillName', label: '技能名稱', text: '精魂再生', x: 728, y: 1022, boxWidth: 470,
+      T({ id: 'skillName', label: '技能名稱', text: '精魂再生', x: 730, y: 1022, boxWidth: 460,
           font: 'Noto Sans TC', weight: 900, size: 46, color: '#ffffff' }),
       // 說明文字（白字）
-      T({ id: 'desc', label: '說明文字', text: '100點生命值降至50點', x: 728, y: 1086, boxWidth: 490,
+      T({ id: 'desc', label: '說明文字', text: '100點生命值降至50點', x: 730, y: 1086, boxWidth: 480,
           font: 'Noto Sans TC', weight: 800, size: 42, color: '#ffffff' }),
-      // 右上角 NERF / BUFF 標籤
-      S({ id: 'tagBox', label: 'NERF / BUFF 底框（可改色）', editable: true, x: 902, y: 976, w: 122, h: 48, radius: 2,
+      // 右上角 NERF / BUFF 標籤（壓在資訊條右上角）
+      S({ id: 'tagBox', label: 'NERF / BUFF 底框（可改色）', editable: true, x: 912, y: 966, w: 132, h: 48, radius: 2,
           fill: '#111111', opacity: 1 }),
-      T({ id: 'tagText', label: 'NERF / BUFF 文字', text: 'NERF', x: 902, y: 976, boxWidth: 200,
+      T({ id: 'tagText', label: 'NERF / BUFF 文字', text: 'NERF', x: 912, y: 966, boxWidth: 200,
           font: 'Oswald', weight: 700, size: 36, color: '#ffffff', letterSpacing: 2, uppercase: true }),
       // 主標題（可留空 / 自行刪除）
       T({ id: 'title', label: '主標題', text: '逃犯首次削弱', x: 540, y: 1238, boxWidth: 980,
