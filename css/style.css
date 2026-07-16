@@ -218,6 +218,29 @@ details.group > summary::before { content: '▸'; color: var(--muted); transitio
 details.group[open] > summary::before { transform: rotate(90deg); }
 details.group > *:not(summary) { margin-top: 9px; }
 .g-label .badge { font-size: 11px; color: var(--muted); font-weight: 600; }
+/* 可收合區塊的標題做成按鈕感（打開才顯示細節）*/
+details.group > summary { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+details.group[open] > summary { border-color: var(--accent); background: rgba(93,109,255,.10); }
+
+/* 物件橫向工具列（對齊 / 翻轉 / 圖層 / 複製 / 刪除）*/
+.obj-toolbar {
+  display: flex; align-items: center; gap: 3px; flex-wrap: wrap;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+  padding: 5px 8px; margin: 0 auto 10px; width: fit-content; max-width: 100%;
+}
+.obj-toolbar.hidden { display: none; }
+.obj-toolbar .tb-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 32px; border: none; border-radius: 8px; cursor: pointer;
+  background: transparent; color: var(--text); padding: 0;
+}
+.obj-toolbar .tb-btn svg { fill: currentColor; }
+.obj-toolbar .tb-btn:hover { background: var(--panel-2); }
+.obj-toolbar .tb-btn.on { background: var(--accent); color: #fff; }
+.obj-toolbar .tb-sep { width: 1px; height: 20px; background: var(--line); margin: 0 3px; }
+
+.stage.drag-over { outline: 3px dashed var(--accent); outline-offset: -3px; }
+.stage.drag-over::after { content: '放開以加入圖片'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(93,109,255,.14); color: #fff; font-weight: 800; font-size: 18px; pointer-events: none; border-radius: 12px; }
 /* 新增元素：可收合工具區 */
 .tool-details { border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; background: var(--panel-2); margin-bottom: 12px; }
 .tool-details > summary { font-weight: 800; font-size: 13px; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; }

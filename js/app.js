@@ -399,7 +399,7 @@ function buildBackgroundGroup(bgEl, ovEl, grads) {
     g.append(h('div', { class: 'hint-line' }, '背景圖片'));
     if (bgEl.src) g.append(h('img', { class: 'thumb-preview', src: bgEl.src }));
     g.append(h('div', { class: 'mini-actions' },
-      h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(bgEl.id, d).then(buildFillForm)) }, bgEl.src ? '替換背景圖' : '上傳背景圖'),
+      h('button', { class: 'btn small', onclick: () => pickImage((d) => editor.replaceImage(bgEl.id, d).then(() => { fitBgToImage(bgEl.id, d); buildFillForm(); })) }, bgEl.src ? '替換背景圖' : '上傳背景圖'),
       bgEl.src ? h('button', { class: 'btn small', onclick: () => { editor.clearImage(bgEl.id); buildFillForm(); } }, '清除') : null,
       h('button', { class: 'btn small', onclick: () => { editor.select(bgEl.id); activateTab('props'); } }, '位置 / 縮放')));
   }
@@ -494,12 +494,13 @@ function buildProps(el) {
     const size = slider('字級', Math.round(el.size), 10, 320, 1, (v) => editor.update(el.id, { size: v }));
     const boxW = slider('換行寬度', Math.round(el.boxWidth), 60, D.width, 2, (v) => editor.update(el.id, { boxWidth: v }));
     const spacing = slider('字距', el.letterSpacing || 0, -8, 40, 0.5, (v) => editor.update(el.id, { letterSpacing: v }));
+    const lineH = slider('行距（兩行間距）', el.lineHeight ?? 1.2, 0.7, 3, 0.05, (v) => editor.update(el.id, { lineHeight: v }), (v) => v.toFixed(2));
 
     pane.append(
       h('label', { class: 'prop' }, h('span', {}, el.editable === false ? '內容（此模板固定）' : '內容'), ta),
       h('div', { class: 'prop-row' }, h('label', { class: 'prop' }, h('span', {}, '字型'), fontSel), h('label', { class: 'prop' }, h('span', {}, '粗細'), weightSel)),
       h('div', { class: 'prop-row' }, h('label', { class: 'prop' }, h('span', {}, '對齊'), align), h('label', { class: 'prop' }, h('span', {}, '顏色'), color)),
-      size, boxW, spacing, posX, posY, opacity,
+      size, boxW, spacing, lineH, posX, posY, opacity,
     );
     state.syncProps = () => { setSlider(size, Math.round(el.size)); setSlider(boxW, Math.round(el.boxWidth)); setSlider(posX, Math.round(el.x)); setSlider(posY, Math.round(el.y)); };
   } else if (el.type === 'image') {
@@ -683,6 +684,14 @@ $('#addShapeBtn')?.addEventListener('click', () => {
   editor.addElement(makeShape({ label: '方形', shape: 'rect', x: state.doc.width / 2, y: state.doc.height / 2, w: 400, h: 400, opacity: 1, fill: '#ff4655' }));
   buildFillForm();
 });
+// 上傳背景圖：依原圖比例鋪滿畫布（不硬裁成畫布比例），之後可用「位置 / 縮放」自由縮放
+function fitBgToImage(id, d) {
+  if (!d || !d.w || !d.h) return;
+  const aspect = d.h / d.w;
+  let w = state.doc.width, hh = w * aspect;
+  if (hh < state.doc.height) { hh = state.doc.height; w = hh / aspect; } // 至少鋪滿
+  editor.update(id, { w: Math.round(w), h: Math.round(hh), x: state.doc.width / 2, y: state.doc.height / 2, fit: 'cover' });
+}
 $('#addBgBtn').addEventListener('click', () => {
   pickImage((d) => {
     let bg = state.doc.elements.find((x) => x.isBackground);
@@ -690,7 +699,7 @@ $('#addBgBtn').addEventListener('click', () => {
       bg = makeImage({ label: '背景圖', isBackground: true, x: state.doc.width / 2, y: state.doc.height / 2, w: state.doc.width, h: state.doc.height, fit: 'cover' });
       state.doc.elements.unshift(bg);
     }
-    editor.replaceImage(bg.id, d).then(buildFillForm);
+    editor.replaceImage(bg.id, d).then(() => { fitBgToImage(bg.id, d); buildFillForm(); });
   });
 });
 $('#saveTplBtn').addEventListener('click', () => {
@@ -890,8 +899,10 @@ async function renderAssetSide() {
   const pageItems = shown.slice(startIdx, startIdx + ASSET_PAGE_SIZE);
   for (const a of pageItems) {
     const nm = (a.name || '素材').replace(/\.(png|jpe?g|webp|gif|svg)$/i, '');
-    grid.append(h('div', { class: 'asset-card pickable', title: nm, onclick: () => useAsset(a) },
-      h('img', { src: a.src, alt: nm, loading: 'lazy' }),
+    grid.append(h('div', { class: 'asset-card pickable', title: nm, draggable: 'true',
+        ondragstart: (ev) => { ev.dataTransfer.setData('application/x-hrnews-asset', a.id); ev.dataTransfer.effectAllowed = 'copy'; },
+        onclick: () => useAsset(a) },
+      h('img', { src: a.src, alt: nm, loading: 'lazy', draggable: 'false' }),
       h('div', { class: 'aname' }, nm),
       a.builtin
         ? h('span', { class: 'abuiltin', title: a.name }, '內建')
@@ -1198,13 +1209,23 @@ function histRecord() {
 }
 async function histApply(snap) {
   history.applying = true;
+  // 記住目前選取的物件與分頁，復原後盡量保持，不要跳走
+  const prevSel = editor.selectedId;
+  const activeEl = document.querySelector('.tab.active');
+  const activeTab = activeEl ? activeEl.dataset.tab : 'fill';
   const doc = JSON.parse(snap);
   state.pages[state.pageIndex] = doc;
   state.doc = doc;
   await editor.setDoc(doc);
+  const keep = prevSel && (doc.elements || []).some((e) => e.id === prevSel);
+  editor.selectedId = keep ? prevSel : null;
+  editor.render();
   buildFillForm();
-  buildProps(null);
+  buildProps(keep ? editor.selected : null);
+  if (!$('#layersPanel').classList.contains('hidden')) renderLayers();
+  updateObjToolbar();
   renderPageStrip();
+  activateTab(activeTab); // 停在原本的分頁（微調 / 圖層 / 快速填寫）
   history.applying = false;
 }
 async function undo() {
@@ -1249,11 +1270,64 @@ document.addEventListener('keydown', (e) => {
 });
 
 // =============================================================
+//  物件橫向工具列（對齊 / 翻轉 / 圖層 / 複製 / 刪除）—— 類似 Adobe AI
+// =============================================================
+const svgI = (inner) => `<svg viewBox="0 0 20 20" width="17" height="17">${inner}</svg>`;
+const OBJ_TB = [
+  { act: 'align-left', t: '靠左對齊', icon: svgI('<rect x="2" y="3" width="1.8" height="14"/><rect x="5" y="5" width="11" height="3"/><rect x="5" y="12" width="7" height="3"/>') },
+  { act: 'align-hcenter', t: '水平置中', icon: svgI('<rect x="9.1" y="3" width="1.8" height="14"/><rect x="4" y="5" width="12" height="3"/><rect x="6" y="12" width="8" height="3"/>') },
+  { act: 'align-right', t: '靠右對齊', icon: svgI('<rect x="16.2" y="3" width="1.8" height="14"/><rect x="4" y="5" width="11" height="3"/><rect x="8" y="12" width="7" height="3"/>') },
+  { sep: 1 },
+  { act: 'align-top', t: '靠上對齊', icon: svgI('<rect x="3" y="2" width="14" height="1.8"/><rect x="5" y="5" width="3" height="11"/><rect x="12" y="5" width="3" height="7"/>') },
+  { act: 'align-vcenter', t: '垂直置中', icon: svgI('<rect x="3" y="9.1" width="14" height="1.8"/><rect x="5" y="4" width="3" height="12"/><rect x="12" y="6" width="3" height="8"/>') },
+  { act: 'align-bottom', t: '靠下對齊', icon: svgI('<rect x="3" y="16.2" width="14" height="1.8"/><rect x="5" y="5" width="3" height="11"/><rect x="12" y="9" width="3" height="7"/>') },
+  { sep: 1 },
+  { act: 'flip-h', t: '水平翻轉', icon: svgI('<rect x="9.2" y="2" width="1.6" height="16"/><path d="M8 5 L2.5 10 L8 15 Z"/><path d="M12 5 L17.5 10 L12 15 Z" opacity=".55"/>') },
+  { act: 'flip-v', t: '垂直翻轉', icon: svgI('<rect x="2" y="9.2" width="16" height="1.6"/><path d="M5 8 L10 2.5 L15 8 Z"/><path d="M5 12 L10 17.5 L15 12 Z" opacity=".55"/>') },
+  { sep: 1 },
+  { act: 'front', t: '移到最上', icon: svgI('<rect x="4" y="4" width="8" height="8" opacity=".35"/><rect x="8.5" y="8.5" width="8" height="8"/>') },
+  { act: 'back', t: '移到最下', icon: svgI('<rect x="8.5" y="8.5" width="8" height="8" opacity=".35"/><rect x="4" y="4" width="8" height="8"/>') },
+  { act: 'dup', t: '複製', icon: svgI('<rect x="3.5" y="3.5" width="9" height="9"/><rect x="8" y="8" width="9" height="9" opacity=".5"/>') },
+  { act: 'del', t: '刪除', icon: svgI('<path d="M5.5 6.5h9l-.8 10.4a1 1 0 0 1-1 .9H7.3a1 1 0 0 1-1-.9zM8 3.5h4l1 1.5h3v1.4H4V5h3z"/>') },
+];
+function buildObjToolbar() {
+  const tb = $('#objToolbar'); if (!tb) return;
+  tb.innerHTML = '';
+  for (const it of OBJ_TB) {
+    if (it.sep) { tb.append(h('span', { class: 'tb-sep' })); continue; }
+    const btn = h('button', { class: 'tb-btn', title: it.t, html: it.icon, onclick: () => objToolbarAct(it.act) });
+    btn.dataset.act = it.act;
+    tb.append(btn);
+  }
+}
+function objToolbarAct(act) {
+  const el = editor.selected; if (!el) return;
+  if (act.startsWith('align-')) editor.align(el.id, act.slice(6));
+  else if (act === 'flip-h') editor.flip(el.id, 'h');
+  else if (act === 'flip-v') editor.flip(el.id, 'v');
+  else if (act === 'front') editor.bringToFront(el.id);
+  else if (act === 'back') editor.sendToBack(el.id);
+  else if (act === 'dup') { editor.duplicateElement(el.id); refreshAfterEdit(); }
+  else if (act === 'del') { editor.removeElement(el.id); refreshAfterEdit(); }
+  updateObjToolbar();
+}
+function updateObjToolbar() {
+  const tb = $('#objToolbar'); if (!tb) return;
+  const el = editor.selected;
+  tb.classList.toggle('hidden', !el);
+  if (!el) return;
+  const fh = tb.querySelector('[data-act="flip-h"]'), fv = tb.querySelector('[data-act="flip-v"]');
+  fh && fh.classList.toggle('on', !!el.flipH);
+  fv && fv.classList.toggle('on', !!el.flipV);
+}
+
+// =============================================================
 //  啟動
 // =============================================================
 editor = new Editor($('#board'), $('#overlay'));
-editor.onSelect = (el) => { buildProps(el); if (!$('#layersPanel').classList.contains('hidden')) renderLayers(); if (el && $('#layersPanel').classList.contains('hidden')) activateTab('props'); };
+editor.onSelect = (el) => { buildProps(el); if (!$('#layersPanel').classList.contains('hidden')) renderLayers(); if (el && $('#layersPanel').classList.contains('hidden')) activateTab('props'); updateObjToolbar(); };
 editor.onChange = () => { state.syncProps && state.syncProps(); histRecord(); scheduleAutoSave(); };
+buildObjToolbar();
 renderGallery();
 
 // 若已設定並登入過，載入時自動同步
@@ -1273,6 +1347,47 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('focus', pullIfIdle);
 // 開著時每 25 秒自動拉一次，讓其他裝置的新增 / 刪除 / 分類自動出現（不用手動重整）
 setInterval(() => { if (state.user && document.visibilityState === 'visible' && !syncing) syncNow(true); }, 25000);
+
+// =============================================================
+//  拖曳新增（電腦檔案 / 素材庫）＋ 點畫布以外空白處也取消選取
+// =============================================================
+async function addImageAt(d, clientX, clientY) {
+  if (!state.doc || !d || !d.src) return;
+  let x = state.doc.width / 2, y = state.doc.height / 2;
+  try { const r = editor.overlay.getBoundingClientRect(); if (clientX != null && r.width) { x = clamp((clientX - r.left) * (state.doc.width / r.width), 0, state.doc.width); y = clamp((clientY - r.top) * (state.doc.height / r.height), 0, state.doc.height); } } catch (_) {}
+  const ratio = (d.w && d.h) ? d.h / d.w : 1;
+  let w = Math.min(560, state.doc.width * 0.6), hh = w * ratio;
+  const maxH = state.doc.height * 0.6; if (hh > maxH) { hh = maxH; w = hh / ratio; }
+  const el = makeImage({ label: '圖片', x, y, w: Math.round(w), h: Math.round(hh), fit: 'contain' });
+  el.src = d.src;
+  await editor.addElement(el);
+  editor.select(el.id); buildFillForm();
+}
+(function setupDnD() {
+  const wrap = document.querySelector('.stage-wrap');
+  const stg = document.querySelector('.stage');
+  if (!wrap || !stg) return;
+  // 點畫布以外的空白處（stage-wrap / 提示文字）也取消選取
+  wrap.addEventListener('pointerdown', (e) => {
+    if (e.target === wrap || e.target.classList.contains('stage') || e.target.classList.contains('stage-hint')) { editor.select(null); }
+  });
+  ['dragenter', 'dragover'].forEach((t) => stg.addEventListener(t, (e) => { e.preventDefault(); stg.classList.add('drag-over'); }));
+  ['dragleave', 'dragend', 'drop'].forEach((t) => stg.addEventListener(t, () => stg.classList.remove('drag-over')));
+  stg.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    if (!state.doc || $('#editorView').classList.contains('hidden')) return;
+    const assetId = e.dataTransfer.getData('application/x-hrnews-asset');
+    if (assetId) {
+      const a = (await assets.list()).find((x) => x.id === assetId) || BUILTIN_ASSETS.find((x) => x.id === assetId);
+      if (a) { if (a.component) useAsset(a); else { await addImageAt({ src: a.src, w: a.w, h: a.h }, e.clientX, e.clientY); toast('已加入素材 ✓'); } }
+      return;
+    }
+    const files = [...(e.dataTransfer.files || [])].filter((f) => f.type.startsWith('image/'));
+    if (!files.length) return;
+    for (const f of files) { try { const d = await readImageFile(f); await addImageAt(d, e.clientX, e.clientY); } catch (_) {} }
+    toast('已加入圖片 ✓');
+  });
+})();
 
 // 加上 ?debug 可在 console 取用 editor（方便進階操作／測試），一般使用者不受影響。
 if (new URLSearchParams(location.search).has('debug')) window.__editor = editor;

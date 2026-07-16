@@ -109,18 +109,21 @@ export class Editor {
     for (const el of d.elements || []) {
       if (el.hidden) continue; // 隱藏的元素不畫、不下載
       const rotDeg = el.type !== 'gradient' ? (el.rotation || 0) : 0;
-      if (rotDeg) {
+      const flip = el.type !== 'gradient' && (el.flipH || el.flipV); // 鏡像翻轉（所有物件都支援）
+      const needsT = rotDeg || flip;
+      if (needsT) {
         const c = this.center(el);
         ctx.save();
         ctx.translate(c.cx * factor, c.cy * factor);
-        ctx.rotate((rotDeg * Math.PI) / 180);
+        if (rotDeg) ctx.rotate((rotDeg * Math.PI) / 180);
+        if (flip) ctx.scale(el.flipH ? -1 : 1, el.flipV ? -1 : 1);
         ctx.translate(-c.cx * factor, -c.cy * factor);
       }
       if (el.type === 'text') this.drawText(ctx, el, factor);
       else if (el.type === 'image') this.drawImage(ctx, el, factor);
       else if (el.type === 'shape') this.drawShape(ctx, el, factor);
       else if (el.type === 'gradient') this.drawGradient(ctx, el, factor);
-      if (rotDeg) ctx.restore();
+      if (needsT) ctx.restore();
     }
     ctx.restore();
   }
@@ -227,11 +230,7 @@ export class Editor {
     ctx.save();
     ctx.globalAlpha = el.opacity ?? 1;
     if (el.blendMode && el.blendMode !== 'source-over') ctx.globalCompositeOperation = el.blendMode;
-    if (el.flipH || el.flipV) { // 水平/垂直翻轉（以中心鏡射）
-      ctx.translate(el.x * f, el.y * f);
-      ctx.scale(el.flipH ? -1 : 1, el.flipV ? -1 : 1);
-      ctx.translate(-el.x * f, -el.y * f);
-    }
+    // 翻轉已在 drawScene 統一處理（所有物件通用）
     if (el.fit === 'cover' || el.radius) {
       roundRectPath(ctx, bx, by, bw, bh, (el.radius || 0) * f);
       ctx.clip();
@@ -588,6 +587,29 @@ export class Editor {
     const b = this.bounds(el);
     if (axis === 'x') el.x += this.doc.width / 2 - b.cx;
     else el.y += this.doc.height / 2 - b.cy;
+    this.render();
+    this.onChange();
+  }
+  // 對齊畫布：left / hcenter / right / top / vcenter / bottom
+  align(id, mode) {
+    const el = this.el(id);
+    if (!el) return;
+    const b = this.bounds(el);
+    const W = this.doc.width, H = this.doc.height;
+    if (mode === 'left') el.x += b.w / 2 - b.cx;
+    else if (mode === 'right') el.x += W - b.w / 2 - b.cx;
+    else if (mode === 'hcenter') el.x += W / 2 - b.cx;
+    else if (mode === 'top') el.y += b.h / 2 - b.cy;
+    else if (mode === 'bottom') el.y += H - b.h / 2 - b.cy;
+    else if (mode === 'vcenter') el.y += H / 2 - b.cy;
+    this.render();
+    this.onChange();
+  }
+  // 翻轉（所有物件通用）
+  flip(id, axis) {
+    const el = this.el(id);
+    if (!el) return;
+    if (axis === 'h') el.flipH = !el.flipH; else el.flipV = !el.flipV;
     this.render();
     this.onChange();
   }
