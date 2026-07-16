@@ -801,8 +801,20 @@ function openModal(title, headActions = []) {
 const ACAT_KEY = 'hrnews.assetCats';
 const ASSET_PAGE_SIZE = 12; // 一頁顯示幾張（每張都完整顯示、好辨識）
 const assetCatState = { current: '全部', page: 0 };
-const readAssetCats = () => { try { return JSON.parse(localStorage.getItem(ACAT_KEY) || '[]'); } catch (_) { return []; } };
-const writeAssetCats = (l) => localStorage.setItem(ACAT_KEY, JSON.stringify(l));
+// 素材分類清單也要能跨裝置同步，所以帶上 updatedAt（新舊格式都相容）
+function assetCatsMeta() {
+  try { const v = JSON.parse(localStorage.getItem(ACAT_KEY) || '{}');
+    if (Array.isArray(v)) return { list: v, updatedAt: v.length ? 1 : 0 };
+    return { list: v.list || [], updatedAt: v.updatedAt || 0 };
+  } catch (_) { return { list: [], updatedAt: 0 }; }
+}
+const readAssetCats = () => assetCatsMeta().list;
+function writeAssetCats(l) { // 本機改動：更新時間戳
+  localStorage.setItem(ACAT_KEY, JSON.stringify({ list: [...new Set(l.filter(Boolean))], updatedAt: Date.now() }));
+}
+function setAssetCats(meta) { // 同步套用：沿用遠端時間戳
+  localStorage.setItem(ACAT_KEY, JSON.stringify({ list: [...new Set((meta.list || []).filter(Boolean))], updatedAt: meta.updatedAt || Date.now() }));
+}
 
 // 上傳：存到目前選的分類
 $('#fileAssets').addEventListener('change', async (e) => {
@@ -864,7 +876,7 @@ async function renderAssetSide() {
   }
   catBox.append(h('button', { class: 'chip addcat', title: '新增分類', onclick: () => {
     const name = (prompt('新增素材分類名稱：') || '').trim();
-    if (name && !userCats.includes(name) && name !== '全部') { writeAssetCats([...userCats, name]); assetCatState.current = name; assetCatState.page = 0; renderAssetSide(); }
+    if (name && !userCats.includes(name) && name !== '全部') { writeAssetCats([...userCats, name]); assetCatState.current = name; assetCatState.page = 0; renderAssetSide(); syncNow(true); }
   } }, '＋分類'));
   // 素材格（分頁）
   const grid = $('#assetSideGrid');
@@ -949,7 +961,12 @@ $('#historyBtn').addEventListener('click', openHistory);
 // =============================================================
 //  雲端同步（Supabase，Email 登入，同步模板/素材/歷史）
 // =============================================================
-function updateSyncBtn() { $('#syncBtn').textContent = state.user ? '☁ 已同步' : '☁ 同步'; }
+let lastSyncError = null;
+function updateSyncBtn() {
+  const btn = $('#syncBtn');
+  if (lastSyncError && state.user) { btn.textContent = '⚠ 同步失敗'; btn.title = '同步失敗：' + lastSyncError + '（點開看說明）'; }
+  else { btn.textContent = state.user ? '☁ 已同步' : '☁ 同步'; btn.title = '雲端同步：跨裝置使用你的資料'; }
+}
 
 // 蒐集本機所有可同步項目（跳過未編輯過的內建模板）
 async function collectLocal() {
@@ -957,16 +974,24 @@ async function collectLocal() {
   for (const t of store.all()) if (t.updatedAt || !t.fromBuiltin) out.push({ kind: 'template', item_id: t.id, data: t, updated_at: t.updatedAt || 1 });
   for (const a of await assets.list()) out.push({ kind: 'asset', item_id: a.id, data: a, updated_at: a.savedAt || 1 });
   for (const p of await projects.list()) out.push({ kind: 'project', item_id: p.id, data: p, updated_at: p.savedAt || 1 });
-  // 「已刪除的預設模板」清單也同步，讓刪除跨裝置一致、且不會被種回來
+  // 這些「清單型」設定也一起同步（用 updatedAt 做新舊比較）
   const del = store.getDeleted();
   if (del.updatedAt) out.push({ kind: 'meta', item_id: 'deletedBuiltins', data: del, updated_at: del.updatedAt });
+  const ac = assetCatsMeta();
+  if (ac.updatedAt) out.push({ kind: 'meta', item_id: 'assetCats', data: ac, updated_at: ac.updatedAt });
+  const tc = store.tplCatsMeta();
+  if (tc.updatedAt) out.push({ kind: 'meta', item_id: 'tplCats', data: tc, updated_at: tc.updatedAt });
   return out;
 }
-function applyLocal(kind, data) {
+function applyLocal(kind, data, itemId) {
   if (kind === 'template') store.upsertRaw(data);
   else if (kind === 'asset') assets.put(data);
   else if (kind === 'project') projects.put(data);
-  else if (kind === 'meta' && data && data.ids) store.setDeleted(data);
+  else if (kind === 'meta' && data) {
+    if (itemId === 'deletedBuiltins' || data.ids) store.setDeleted(data);
+    else if (itemId === 'assetCats') setAssetCats(data);
+    else if (itemId === 'tplCats') store.setTplCats(data);
+  }
 }
 function removeLocalItem(kind, id) {
   if (kind === 'template') store.remove(id);
@@ -988,11 +1013,12 @@ async function syncNow(silent) {
     const rmap = new Map(remote.map((r) => [r.kind + ':' + r.item_id, r]));
     const local = await collectLocal();
     // 雲端較新 → 覆蓋本機；雲端墓碑 → 刪本機
+    let changed = false;
     for (const r of remote) {
       const l = local.find((x) => x.kind === r.kind && x.item_id === r.item_id);
       const rt = new Date(r.updated_at).getTime();
-      if (r.deleted) { if (l && rt >= l.updated_at) removeLocalItem(r.kind, r.item_id); continue; }
-      if (!l || rt > l.updated_at) applyLocal(r.kind, r.data);
+      if (r.deleted) { if (l && rt >= l.updated_at) { removeLocalItem(r.kind, r.item_id); changed = true; } continue; }
+      if (!l || rt > l.updated_at) { applyLocal(r.kind, r.data, r.item_id); changed = true; }
     }
     // 本機較新 / 雲端沒有 → 推上去
     const toPush = [];
@@ -1003,11 +1029,18 @@ async function syncNow(silent) {
     }
     if (toPush.length) await pushRemote(toPush);
     store.setDeleted(store.getDeleted()); // 保險：把已刪除的預設模板再清一次（避免舊 template 列又被種回來）
-    renderGallery();
-    if (!$('#editorView').classList.contains('hidden')) renderAssetSide();
+    lastSyncError = null;
+    updateSyncBtn();
+    // 只有真的有變動才重繪，避免每 25 秒輪詢時畫面閃爍
+    if (changed || !silent) { renderGallery(); if (!$('#editorView').classList.contains('hidden')) renderAssetSide(); }
     if (!silent) toast('已同步 ✓');
   } catch (e) {
-    if (!silent) toast('同步失敗：' + (e.message || e));
+    const msg = (e && (e.message || e.error_description || e.details || e.hint)) || String(e);
+    // 常見：Supabase 還沒建 items 表 → 給明確提示
+    lastSyncError = /items/i.test(msg) && /(exist|relation|not found|schema cache|table)/i.test(msg)
+      ? '雲端還沒建立資料表，請照說明在 Supabase 執行一次 SQL' : msg;
+    updateSyncBtn();
+    if (!silent) toast('同步失敗：' + lastSyncError);
   } finally { syncing = false; }
 }
 
@@ -1065,6 +1098,14 @@ function openSyncModal() {
 
   if (!syncCfg.configured()) return;
 
+  // 若上次同步失敗，把原因清楚顯示出來（例如還沒建 items 表）
+  if (lastSyncError && state.user) {
+    body.append(h('div', { class: 'group', style: 'border-color:#e4405f' },
+      h('div', { class: 'g-label', style: 'color:#ff6b81' }, '⚠ 上次同步失敗'),
+      h('div', { class: 'hint-line' }, lastSyncError),
+      h('div', { class: 'hint-line' }, '若顯示「還沒建立資料表」，請到 Supabase → SQL Editor 貼上並執行 README「雲端同步」段的建表 SQL，再回來按「立即同步」。')));
+  }
+
   const authBox = h('div', { class: 'group' }, h('div', { class: 'g-label' }, '2. 登入 / 同步'));
   body.append(authBox);
   if (state.user) {
@@ -1106,7 +1147,7 @@ function openCatManager() {
   const addIn = h('input', { type: 'text', placeholder: '新分類名稱' });
   body.append(h('div', { class: 'group' }, h('div', { class: 'g-label' }, '新增分類'),
     h('div', { class: 'mini-actions' }, addIn,
-      h('button', { class: 'btn small primary', onclick: () => { if (addIn.value.trim()) { store.addCategory(addIn.value); addIn.value = ''; openCatManager(); renderGallery(); } } }, '新增'))));
+      h('button', { class: 'btn small primary', onclick: () => { if (addIn.value.trim()) { store.addCategory(addIn.value); addIn.value = ''; openCatManager(); renderGallery(); syncNow(true); } } }, '新增'))));
   const listBox = h('div', { class: 'group' }, h('div', { class: 'g-label' }, '現有分類（改名會一併更新該分類的模板）'));
   for (const c of store.categories()) {
     if (c === '未分類') continue;
@@ -1230,6 +1271,8 @@ function pullIfIdle() {
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullIfIdle(); });
 window.addEventListener('focus', pullIfIdle);
+// 開著時每 25 秒自動拉一次，讓其他裝置的新增 / 刪除 / 分類自動出現（不用手動重整）
+setInterval(() => { if (state.user && document.visibilityState === 'visible' && !syncing) syncNow(true); }, 25000);
 
 // 加上 ?debug 可在 console 取用 editor（方便進階操作／測試），一般使用者不受影響。
 if (new URLSearchParams(location.search).has('debug')) window.__editor = editor;

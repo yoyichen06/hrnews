@@ -8,8 +8,10 @@ const KEY = 'hrnews.templates.v2';
 const TCAT_KEY = 'hrnews.templateCats';
 const SEED_KEY = 'hrnews.seedVer';
 const DEL_KEY = 'hrnews.deletedBuiltins'; // 被刪掉的預設模板 id（避免每次載入又被種回來、也能跨裝置同步刪除）
-const readTCats = () => { try { return JSON.parse(localStorage.getItem(TCAT_KEY) || '[]'); } catch (_) { return []; } };
-const writeTCats = (l) => localStorage.setItem(TCAT_KEY, JSON.stringify([...new Set(l.filter(Boolean))]));
+// 模板分類清單也帶 updatedAt，才能跨裝置同步（新舊格式相容）
+const readTCatsMeta = () => { try { const v = JSON.parse(localStorage.getItem(TCAT_KEY) || '{}'); if (Array.isArray(v)) return { list: v, updatedAt: v.length ? 1 : 0 }; return { list: v.list || [], updatedAt: v.updatedAt || 0 }; } catch (_) { return { list: [], updatedAt: 0 }; } };
+const readTCats = () => readTCatsMeta().list;
+const writeTCats = (l) => localStorage.setItem(TCAT_KEY, JSON.stringify({ list: [...new Set(l.filter(Boolean))], updatedAt: Date.now() }));
 const readDel = () => { try { const d = JSON.parse(localStorage.getItem(DEL_KEY) || '{}'); return { ids: d.ids || [], updatedAt: d.updatedAt || 0 }; } catch (_) { return { ids: [], updatedAt: 0 }; } };
 const writeDel = (d) => localStorage.setItem(DEL_KEY, JSON.stringify({ ids: [...new Set(d.ids)], updatedAt: d.updatedAt || Date.now() }));
 const SEED_VER = '13'; // 改內建模板時把版本 +1，未被使用者改過的內建副本會自動更新
@@ -86,6 +88,9 @@ export const store = {
     if (bId) { const d = readDel(); if (!d.ids.includes(bId)) { d.ids.push(bId); d.updatedAt = Date.now(); writeDel(d); } }
     write(list.filter((x) => x.id !== id));
   },
+  // 同步用：讀 / 寫「模板分類清單」（跨裝置一致）
+  tplCatsMeta() { return readTCatsMeta(); },
+  setTplCats(meta) { localStorage.setItem(TCAT_KEY, JSON.stringify({ list: [...new Set((meta.list || []).filter(Boolean))], updatedAt: meta.updatedAt || Date.now() })); },
   // 同步用：讀 / 寫「已刪除預設模板」清單（跨裝置一致）
   getDeleted() { return readDel(); },
   setDeleted(d) {
