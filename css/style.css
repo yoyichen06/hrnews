@@ -239,6 +239,20 @@ details.group[open] > summary { border-color: var(--accent); background: rgba(93
 .obj-toolbar .tb-btn.on { background: var(--accent); color: #fff; }
 .obj-toolbar .tb-sep { width: 1px; height: 20px; background: var(--line); margin: 0 3px; }
 
+/* 開關切換（iOS 風格）取代打勾框 */
+.switch { position: relative; display: inline-block; width: 42px; height: 24px; flex: 0 0 auto; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .track { position: absolute; inset: 0; background: #3a4152; border-radius: 999px; transition: background .15s; }
+.switch .track::before { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.switch input:checked + .track { background: var(--accent); }
+.switch input:checked + .track::before { transform: translateX(18px); }
+/* 開關列：左邊標題、右邊開關 */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 0; }
+.toggle-row > span:first-child { font-size: 13px; font-weight: 600; }
+details.group > summary.sum-toggle { display: flex; align-items: center; justify-content: space-between; }
+details.group > summary.sum-toggle::before { display: none; }
+details.group > summary.sum-toggle .sw-wrap { display: flex; align-items: center; gap: 8px; }
+
 .stage.drag-over { outline: 3px dashed var(--accent); outline-offset: -3px; }
 .stage.drag-over::after { content: '放開以加入圖片'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(93,109,255,.14); color: #fff; font-weight: 800; font-size: 18px; pointer-events: none; border-radius: 12px; }
 /* 新增元素：可收合工具區 */

@@ -48,6 +48,16 @@ function slider(label, value, min, max, step, cb, fmt = (v) => v) {
   return row;
 }
 
+// 開關切換元件（iOS 風格），取代打勾框
+function switchEl(checked, onChange) {
+  const input = h('input', { type: 'checkbox', ...(checked ? { checked: true } : {}), onchange: (e) => onChange(e.target.checked) });
+  return h('label', { class: 'switch' }, input, h('span', { class: 'track' }));
+}
+// 「標題 + 右側開關」整列
+function toggleRow(label, checked, onChange) {
+  return h('div', { class: 'toggle-row' }, h('span', {}, label), switchEl(checked, onChange));
+}
+
 // ---------- 狀態 ----------
 // pages：多頁（輪播）用；state.doc 永遠指向目前這一頁。
 const state = { mode: 'post', doc: null, pages: [], pageIndex: 0, filter: '全部', editingCustomId: null, syncProps: null, projectId: null, projectName: '', user: null };
@@ -295,29 +305,23 @@ function buildFillForm() {
   // 固定元素（外框 / LOGO / HR NEWS）解鎖開關
   const fixedEls = D.elements.filter((e) => e.fixed);
   if (fixedEls.length) {
-    const chk = h('input', { type: 'checkbox', ...(editor.unlockFixed ? { checked: true } : {}), onchange: (e) => { editor.setUnlockFixed(e.target.checked); buildFillForm(); } });
-    pane.append(h('hr'), h('label', { class: 'inline lock-toggle' }, chk, h('span', {}, '編輯固定元素（外框 / LOGO / HR NEWS）')));
+    pane.append(h('hr'), toggleRow('編輯固定元素（外框 / LOGO / HR NEWS）', editor.unlockFixed, (v) => { editor.setUnlockFixed(v); buildFillForm(); }));
     if (editor.unlockFixed) for (const el of fixedEls) pane.append(fieldGroup(el, true));
   }
 }
 
 // 顯示 / 隱藏開關（同群組一起切換）
 function hideToggle(el) {
-  return h('label', { class: 'inline' },
-    h('input', { type: 'checkbox', ...(el.hidden ? {} : { checked: true }), title: '顯示 / 隱藏',
-      onchange: (e) => { editor.setHidden(el.id, !e.target.checked); buildFillForm(); } }),
-    h('span', { class: 'hint-line' }, '顯示這個（取消勾選就不出現）'));
+  return toggleRow('顯示這個（關閉就不出現）', !el.hidden, (on) => { editor.setHidden(el.id, !on); buildFillForm(); });
 }
 
 // 形狀外框線（描邊）控制：開關 + 粗細 + 顏色
 function borderControls(el) {
   const on = !!(el.stroke && el.stroke.width > 0);
-  const chk = h('input', { type: 'checkbox', ...(on ? { checked: true } : {}), onchange: (e) => {
-    editor.update(el.id, { stroke: e.target.checked
-      ? { color: (el.stroke && el.stroke.color) || '#ffffff', width: (el.stroke && el.stroke.width) || 2 } : null });
+  const wrap = h('div', {}, toggleRow('外框線', on, (v) => {
+    editor.update(el.id, { stroke: v ? { color: (el.stroke && el.stroke.color) || '#ffffff', width: (el.stroke && el.stroke.width) || 2 } : null });
     buildFillForm(); if (editor.selectedId === el.id) buildProps(editor.selected);
-  } });
-  const wrap = h('div', {}, h('label', { class: 'inline' }, chk, h('span', { class: 'hint-line' }, '外框線')));
+  }));
   if (on) {
     wrap.append(slider('外框粗細', el.stroke.width, 0, 40, 1, (v) => editor.update(el.id, { stroke: { ...el.stroke, width: v } })));
     wrap.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '外框顏色'),
@@ -329,12 +333,10 @@ function borderControls(el) {
 // 四角方塊（像名稱標籤那樣，四個角落各一個小方塊）；線（外框）與方塊顏色分開控制
 function cornerSquareControls(el) {
   const on = !!(el.corners && el.corners.size > 0);
-  const chk = h('input', { type: 'checkbox', ...(on ? { checked: true } : {}), onchange: (e) => {
-    editor.update(el.id, { corners: e.target.checked
-      ? { size: (el.corners && el.corners.size) || 20, color: (el.corners && el.corners.color) || '#e4002b' } : null });
+  const wrap = h('div', {}, toggleRow('四角方塊', on, (v) => {
+    editor.update(el.id, { corners: v ? { size: (el.corners && el.corners.size) || 20, color: (el.corners && el.corners.color) || '#e4002b' } : null });
     buildFillForm(); if (editor.selectedId === el.id) buildProps(editor.selected);
-  } });
-  const wrap = h('div', {}, h('label', { class: 'inline' }, chk, h('span', { class: 'hint-line' }, '四角方塊')));
+  }));
   if (on) {
     wrap.append(slider('方塊大小', el.corners.size, 2, 80, 1, (v) => editor.update(el.id, { corners: { ...el.corners, size: v } })));
     wrap.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '方塊顏色'),
@@ -547,20 +549,18 @@ function buildProps(el) {
 // 文字外框（描邊）：開關 + 粗細 + 顏色
 function strokeControls(el) {
   const on = !!(el.stroke && el.stroke.width > 0);
-  const chk = h('input', { type: 'checkbox', ...(on ? { checked: true } : {}), onchange: (e) => {
-    editor.update(el.id, { stroke: e.target.checked
-      ? { color: (el.stroke && el.stroke.color) || '#000000', width: (el.stroke && el.stroke.width) || 6 } : null });
+  const sw = switchEl(on, (v) => {
+    editor.update(el.id, { stroke: v ? { color: (el.stroke && el.stroke.color) || '#000000', width: (el.stroke && el.stroke.width) || 6 } : null });
     buildProps(editor.selected);
-  } });
-  const g = h('details', { class: 'group' }, h('summary', {}, '文字外框（描邊）'),
-    h('label', { class: 'inline' }, chk, h('span', { class: 'hint-line' }, '開啟外框')));
+  });
+  const g = h('details', { class: 'group', ...(on ? { open: true } : {}) },
+    h('summary', { class: 'sum-toggle', onclick: (e) => { if (e.target.closest('.switch')) e.preventDefault(); } },
+      h('span', {}, '文字外框（描邊）'), sw));
   if (on) {
     g.append(slider('外框粗細', el.stroke.width, 0, 40, 1, (v) => editor.update(el.id, { stroke: { ...el.stroke, width: v } })));
     g.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '外框顏色'),
       h('input', { type: 'color', value: el.stroke.color, oninput: (e) => editor.update(el.id, { stroke: { ...el.stroke, color: e.target.value } }) })));
-    g.append(h('label', { class: 'inline' },
-      h('input', { type: 'checkbox', ...(el.hollow ? { checked: true } : {}), onchange: (e) => editor.update(el.id, { hollow: e.target.checked }) }),
-      h('span', { class: 'hint-line' }, '空心字（只留外框）')));
+    g.append(toggleRow('空心字（只留外框）', !!el.hollow, (v) => editor.update(el.id, { hollow: v })));
   }
   return g;
 }
@@ -589,9 +589,10 @@ const SHADOW_DEF = { on: true, angle: 135, distance: 8, blur: 8, color: '#000000
 function shadowControls(el) {
   const sh = el.shadow || { on: false };
   const set = (patch) => editor.update(el.id, { shadow: { ...SHADOW_DEF, ...(el.shadow || {}), ...patch } });
-  const chk = h('input', { type: 'checkbox', ...(sh.on ? { checked: true } : {}), onchange: (e) => { set({ on: e.target.checked }); buildProps(editor.selected); } });
-  const g = h('details', { class: 'group', ...(sh.on ? { open: true } : {}) }, h('summary', {}, '陰影'),
-    h('label', { class: 'inline' }, chk, h('span', { class: 'hint-line' }, '開啟陰影')));
+  const sw = switchEl(!!sh.on, (v) => { set({ on: v }); buildProps(editor.selected); });
+  const g = h('details', { class: 'group', ...(sh.on ? { open: true } : {}) },
+    h('summary', { class: 'sum-toggle', onclick: (e) => { if (e.target.closest('.switch')) e.preventDefault(); } },
+      h('span', {}, '陰影'), sw));
   if (sh.on) {
     g.append(
       slider('角度', sh.angle ?? 135, 0, 360, 1, (v) => set({ angle: v }), (v) => v + '°'),
