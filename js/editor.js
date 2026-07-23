@@ -714,6 +714,40 @@ export class Editor {
     return off.toDataURL(type, quality);
   }
 
+  // 圖層縮圖：把單一元素畫進透明小方框（等比縮放、置中），給圖層面板用。
+  elementThumb(el, size = 40) {
+    const dpr = 2;
+    const S = Math.round(size * dpr);
+    const c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    const ctx = c.getContext('2d');
+    let b;
+    try { b = this.bounds(el); } catch (_) { b = { cx: el.x || 0, cy: el.y || 0, w: el.w || 1, h: el.h || 1 }; }
+    const bw = Math.max(1, b.w), bh = Math.max(1, b.h);
+    const bx = b.cx - bw / 2, by = b.cy - bh / 2;
+    const pad = 4 * dpr;
+    const s = Math.min((S - 2 * pad) / bw, (S - 2 * pad) / bh);
+    ctx.save();
+    ctx.translate((S - bw * s) / 2 - bx * s, (S - bh * s) / 2 - by * s);
+    const rotDeg = el.type !== 'gradient' ? (el.rotation || 0) : 0;
+    const flip = el.type !== 'gradient' && (el.flipH || el.flipV);
+    if (rotDeg || flip) {
+      const cen = this.center(el);
+      ctx.translate(cen.cx * s, cen.cy * s);
+      if (rotDeg) ctx.rotate((rotDeg * Math.PI) / 180);
+      if (flip) ctx.scale(el.flipH ? -1 : 1, el.flipV ? -1 : 1);
+      ctx.translate(-cen.cx * s, -cen.cy * s);
+    }
+    try {
+      if (el.type === 'text') this.drawText(ctx, el, s);
+      else if (el.type === 'image') this.drawImage(ctx, el, s);
+      else if (el.type === 'shape') this.drawShape(ctx, el, s);
+      else if (el.type === 'gradient') this.drawGradient(ctx, el, s);
+    } catch (_) { /* 縮圖失敗就給空白框 */ }
+    ctx.restore();
+    return c.toDataURL('image/png');
+  }
+
   // 產生模板縮圖（給模板一覽用）。
   static async renderThumb(doc, maxW = 360) {
     const ed = new Editor(document.createElement('canvas'), document.createElement('canvas'));

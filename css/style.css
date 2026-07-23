@@ -292,6 +292,11 @@ input[type="color"] { width: 42px; height: 34px; border: 1px solid var(--line); 
 .layer-row .lyr-ic { border: none; background: transparent; color: var(--text); width: 26px; height: 26px; border-radius: 6px; font-size: 13px; line-height: 1; }
 .layer-row .lyr-ic:hover { background: var(--line); }
 .layer-row .lyr-ic.danger:hover { background: var(--accent-2); color: #fff; }
+/* 圖層縮圖（類似 Adobe，顯示該層內容） */
+.layer-row .lyr-thumb { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 5px; border: 1px solid var(--line); background: #fff; background-image: linear-gradient(45deg, #d7d7d7 25%, transparent 25%, transparent 75%, #d7d7d7 75%), linear-gradient(45deg, #d7d7d7 25%, #fff 25%, #fff 75%, #d7d7d7 75%); background-size: 10px 10px; background-position: 0 0, 5px 5px; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; }
+.layer-row .lyr-thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.layer-row .lyr-thumb.off { opacity: 0.4; }
+.layer-row .lyr-thumb-ph { font-size: 13px; font-weight: 800; color: #333; line-height: 1; }
 
 .lock-toggle { font-size: 13px; font-weight: 700; cursor: pointer; gap: 10px; }
 .lock-toggle input { width: 18px; height: 18px; accent-color: var(--accent); }

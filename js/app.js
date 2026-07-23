@@ -254,7 +254,16 @@ function activateTab(name) {
   if (name === 'layers') renderLayers();
 }
 
-// 圖層面板：由上到下列出所有元素（可選取 / 顯示隱藏 / 鎖定 / 上下移 / 刪除）
+// 沒有縮圖時（例如空圖框）用的類型小圖示
+function LYR_ICON(el) {
+  if (el.type === 'text') return 'T';
+  if (el.type === 'gradient') return '▨';
+  if (el.type === 'image') return '🖼';
+  if (el.type === 'shape') return ({ ellipse: '⬤', triangle: '▲', polygon: '⬢', star: '★', line: '／', arrow: '↓' }[el.shape] || '▭');
+  return '◻';
+}
+
+// 圖層面板：由上到下列出所有元素（縮圖 + 可選取 / 顯示隱藏 / 鎖定 / 上下移 / 刪除）
 function layerRows() {
   const frag = document.createDocumentFragment();
   if (!state.doc) return frag;
@@ -262,9 +271,13 @@ function layerRows() {
   for (let i = els.length - 1; i >= 0; i--) { // 陣列後面的畫在上層 → 由上往下列
     const el = els[i];
     const row = h('div', { class: 'layer-row' + (editor.selectedId === el.id ? ' active' : '') });
+    let thumbSrc = ''; try { thumbSrc = editor.elementThumb(el, 40); } catch (_) {}
+    const thumb = h('span', { class: 'lyr-thumb' + (el.hidden ? ' off' : ''), onclick: () => { editor.select(el.id); activateTab('props'); } },
+      thumbSrc ? h('img', { src: thumbSrc, alt: '' }) : h('span', { class: 'lyr-thumb-ph' }, LYR_ICON(el)));
     row.append(
       h('button', { class: 'lyr-ic', title: el.hidden ? '顯示' : '隱藏', onclick: () => { editor.setHidden(el.id, !el.hidden); renderLayers(); } }, el.hidden ? '🚫' : '👁'),
       h('button', { class: 'lyr-ic', title: el.locked ? '解鎖' : '鎖定', onclick: () => { editor.update(el.id, { locked: !el.locked }); renderLayers(); } }, el.locked ? '🔒' : '🔓'),
+      thumb,
       h('span', { class: 'lyr-name', onclick: () => { editor.select(el.id); activateTab('props'); } }, el.label || el.type),
       h('button', { class: 'lyr-ic', title: '上移一層', onclick: () => { editor.moveLayer(el.id, 1); renderLayers(); } }, '▲'),
       h('button', { class: 'lyr-ic', title: '下移一層', onclick: () => { editor.moveLayer(el.id, -1); renderLayers(); } }, '▼'),
@@ -1329,7 +1342,10 @@ function updateObjToolbar() {
 // =============================================================
 editor = new Editor($('#board'), $('#overlay'));
 editor.onSelect = (el) => { buildProps(el); renderLayers(); if (el && $('#layersPanel').classList.contains('hidden')) activateTab('props'); updateObjToolbar(); };
-editor.onChange = () => { state.syncProps && state.syncProps(); histRecord(); scheduleAutoSave(); };
+// 編輯內容後，稍微延遲刷新圖層縮圖（改字 / 換色 / 縮放時縮圖跟著更新，像 Adobe）
+let _thumbT = 0;
+function scheduleThumbRefresh() { clearTimeout(_thumbT); _thumbT = setTimeout(() => { if (!history.applying) renderLayers(); }, 220); }
+editor.onChange = () => { state.syncProps && state.syncProps(); histRecord(); scheduleAutoSave(); scheduleThumbRefresh(); };
 buildObjToolbar();
 renderGallery();
 
