@@ -27,3 +27,8 @@
   for = "/*.js"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+# 版本標記檔：絕不快取，讓前端能即時比對是否有新版本
+[[headers]]
+  for = "/version.txt"
+  [headers.values]
+    Cache-Control = "no-store, max-age=0"
