@@ -67,7 +67,8 @@ hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
 .btn.block { width: 100%; margin-top: 8px; }
 
 /* ---------- Gallery ---------- */
-.view { padding: 16px; max-width: 1200px; margin: 0 auto; }
+.view { padding: 16px 24px; max-width: 1400px; margin: 0 auto; }
+#editorView { max-width: none; padding: 0; } /* 編輯器滿版 */
 .gallery-top {
   display: flex; gap: 12px; align-items: center; justify-content: space-between;
   flex-wrap: wrap; margin-bottom: 16px;
@@ -125,12 +126,17 @@ hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
 .save-status.saving { color: var(--muted); }
 .save-status.saved { color: #12b886; }
 
-.editor-body { display: flex; gap: 20px; padding: 18px 16px 60px; max-width: 1200px; margin: 0 auto; align-items: flex-start; }
+/* 滿版：用整個視窗寬度、不再置中留白 */
+.editor-body { display: flex; gap: 18px; padding: 18px 20px 60px; width: 100%; margin: 0; align-items: flex-start; }
 .stage-wrap { flex: 1; min-width: 0; position: sticky; top: 64px; }
 .stage {
-  position: relative; width: 100%; max-width: 560px; margin: 0 auto;
+  position: relative; width: 100%; max-width: 640px; margin: 0 auto;
   border-radius: var(--radius); overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.5);
 }
+/* 常駐圖層面板（Adobe 風格）*/
+.layers-dock { flex: 0 0 224px; width: 224px; position: sticky; top: 64px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); max-height: calc(100vh - 90px); display: flex; flex-direction: column; overflow: hidden; }
+.dock-head { font-weight: 800; font-size: 14px; padding: 11px 12px; border-bottom: 1px solid var(--line); flex: 0 0 auto; }
+.layers-dock-body { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
 #board { width: 100%; height: auto; display: block; }
 #overlay { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
 #overlay:active { cursor: grabbing; }
@@ -325,6 +331,9 @@ input[type="color"] { width: 42px; height: 34px; border: 1px solid var(--line); 
 }
 
 /* ---------- Responsive ---------- */
+@media (max-width: 1100px) {
+  .layers-dock { display: none; } /* 中小螢幕用「圖層」分頁，隱藏常駐面板 */
+}
 @media (max-width: 860px) {
   .editor-body { flex-direction: column; }
   .stage-wrap { position: static; width: 100%; }

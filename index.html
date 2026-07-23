@@ -5,13 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>HR NEWS 貼文產生器</title>
   <meta name="description" content="社群貼文模板編輯器：手機、電腦都能快速套版產出貼文，支援自製模板與分類。" />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg?v=20260723" />
+  <link rel="apple-touch-icon" href="./favicon.svg?v=20260723" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
     href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;700;900&family=Oswald:wght@400;500;700&family=Rajdhani:wght@500;700&family=Teko:wght@400;500;700&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="./css/style.css?v=20260722" />
+  <link rel="stylesheet" href="./css/style.css?v=20260723" />
 </head>
 <body>
   <header class="app-header">
@@ -139,6 +141,12 @@
         <div id="propsPanel" class="tabpane hidden"></div>
         <div id="layersPanel" class="tabpane hidden"></div>
       </aside>
+
+      <!-- 常駐圖層面板（類似 Adobe，桌機才顯示）-->
+      <aside class="layers-dock" id="layersDock">
+        <div class="dock-head">圖層</div>
+        <div id="layersDockBody" class="layers-dock-body"></div>
+      </aside>
     </div>
   </main>
 
@@ -149,6 +157,6 @@
   <div id="modalRoot"></div>
   <div id="toast" class="toast" hidden></div>
 
-  <script type="module" src="./js/app.js?v=20260722"></script>
+  <script type="module" src="./js/app.js?v=20260723"></script>
 </body>
 </html>

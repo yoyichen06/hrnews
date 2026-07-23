@@ -255,9 +255,9 @@ function activateTab(name) {
 }
 
 // 圖層面板：由上到下列出所有元素（可選取 / 顯示隱藏 / 鎖定 / 上下移 / 刪除）
-function renderLayers() {
-  const pane = $('#layersPanel');
-  pane.innerHTML = '';
+function layerRows() {
+  const frag = document.createDocumentFragment();
+  if (!state.doc) return frag;
   const els = state.doc.elements;
   for (let i = els.length - 1; i >= 0; i--) { // 陣列後面的畫在上層 → 由上往下列
     const el = els[i];
@@ -266,11 +266,16 @@ function renderLayers() {
       h('button', { class: 'lyr-ic', title: el.hidden ? '顯示' : '隱藏', onclick: () => { editor.setHidden(el.id, !el.hidden); renderLayers(); } }, el.hidden ? '🚫' : '👁'),
       h('button', { class: 'lyr-ic', title: el.locked ? '解鎖' : '鎖定', onclick: () => { editor.update(el.id, { locked: !el.locked }); renderLayers(); } }, el.locked ? '🔒' : '🔓'),
       h('span', { class: 'lyr-name', onclick: () => { editor.select(el.id); activateTab('props'); } }, el.label || el.type),
-      h('button', { class: 'lyr-ic', title: '上移', onclick: () => { editor.moveLayer(el.id, 1); renderLayers(); } }, '▲'),
-      h('button', { class: 'lyr-ic', title: '下移', onclick: () => { editor.moveLayer(el.id, -1); renderLayers(); } }, '▼'),
+      h('button', { class: 'lyr-ic', title: '上移一層', onclick: () => { editor.moveLayer(el.id, 1); renderLayers(); } }, '▲'),
+      h('button', { class: 'lyr-ic', title: '下移一層', onclick: () => { editor.moveLayer(el.id, -1); renderLayers(); } }, '▼'),
       h('button', { class: 'lyr-ic danger', title: '刪除', onclick: () => { editor.removeElement(el.id); buildFillForm(); renderLayers(); } }, '🗑'));
-    pane.append(row);
+    frag.append(row);
   }
+  return frag;
+}
+function renderLayers() {
+  const pane = $('#layersPanel'); if (pane) { pane.innerHTML = ''; pane.append(layerRows()); }
+  const dock = $('#layersDockBody'); if (dock) { dock.innerHTML = ''; dock.append(layerRows()); }
 }
 document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => activateTab(t.dataset.tab)));
 
@@ -308,6 +313,7 @@ function buildFillForm() {
     pane.append(h('hr'), toggleRow('編輯固定元素（外框 / LOGO / HR NEWS）', editor.unlockFixed, (v) => { editor.setUnlockFixed(v); buildFillForm(); }));
     if (editor.unlockFixed) for (const el of fixedEls) pane.append(fieldGroup(el, true));
   }
+  renderLayers(); // 常駐圖層面板隨內容更新
 }
 
 // 顯示 / 隱藏開關（同群組一起切換）
@@ -553,9 +559,7 @@ function strokeControls(el) {
     editor.update(el.id, { stroke: v ? { color: (el.stroke && el.stroke.color) || '#000000', width: (el.stroke && el.stroke.width) || 6 } : null });
     buildProps(editor.selected);
   });
-  const g = h('details', { class: 'group', ...(on ? { open: true } : {}) },
-    h('summary', { class: 'sum-toggle', onclick: (e) => { if (e.target.closest('.switch')) e.preventDefault(); } },
-      h('span', {}, '文字外框（描邊）'), sw));
+  const g = h('div', { class: 'group' }, h('div', { class: 'toggle-row' }, h('span', {}, '文字外框（描邊）'), sw));
   if (on) {
     g.append(slider('外框粗細', el.stroke.width, 0, 40, 1, (v) => editor.update(el.id, { stroke: { ...el.stroke, width: v } })));
     g.append(h('label', { class: 'inline' }, h('span', { class: 'hint-line' }, '外框顏色'),
@@ -590,9 +594,7 @@ function shadowControls(el) {
   const sh = el.shadow || { on: false };
   const set = (patch) => editor.update(el.id, { shadow: { ...SHADOW_DEF, ...(el.shadow || {}), ...patch } });
   const sw = switchEl(!!sh.on, (v) => { set({ on: v }); buildProps(editor.selected); });
-  const g = h('details', { class: 'group', ...(sh.on ? { open: true } : {}) },
-    h('summary', { class: 'sum-toggle', onclick: (e) => { if (e.target.closest('.switch')) e.preventDefault(); } },
-      h('span', {}, '陰影'), sw));
+  const g = h('div', { class: 'group' }, h('div', { class: 'toggle-row' }, h('span', {}, '陰影'), sw));
   if (sh.on) {
     g.append(
       slider('角度', sh.angle ?? 135, 0, 360, 1, (v) => set({ angle: v }), (v) => v + '°'),
@@ -1242,7 +1244,7 @@ function isTypingTarget(t) {
 }
 let clipboard = null;
 const inEditor = () => !$('#editorView').classList.contains('hidden');
-function refreshAfterEdit() { buildFillForm(); if (!$('#layersPanel').classList.contains('hidden')) renderLayers(); }
+function refreshAfterEdit() { buildFillForm(); renderLayers(); }
 
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey) {
@@ -1326,7 +1328,7 @@ function updateObjToolbar() {
 //  啟動
 // =============================================================
 editor = new Editor($('#board'), $('#overlay'));
-editor.onSelect = (el) => { buildProps(el); if (!$('#layersPanel').classList.contains('hidden')) renderLayers(); if (el && $('#layersPanel').classList.contains('hidden')) activateTab('props'); updateObjToolbar(); };
+editor.onSelect = (el) => { buildProps(el); renderLayers(); if (el && $('#layersPanel').classList.contains('hidden')) activateTab('props'); updateObjToolbar(); };
 editor.onChange = () => { state.syncProps && state.syncProps(); histRecord(); scheduleAutoSave(); };
 buildObjToolbar();
 renderGallery();
