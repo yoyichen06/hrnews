@@ -8,7 +8,7 @@ import { FONTS } from './fonts.js';
 import { importSVGFile } from './svg.js';
 import { assets, projects } from './db.js';
 import { BUILTIN_ASSETS } from './builtin-assets.js';
-import { syncCfg, signUp, signIn, signInWithGitHub, signOut, currentUser, fetchRemote, pushRemote, markDeleted } from './sync.js';
+import { syncCfg, signUp, signIn, signInWithGitHub, signOut, currentUser, fetchRemoteMeta, fetchRemoteData, pushRemote, markDeleted } from './sync.js';
 import { readImageFile, downloadDataURL, deepClone, clamp, uid } from './util.js';
 
 // ---------- 迷你工具 ----------
@@ -1036,16 +1036,23 @@ async function syncNow(silent) {
   if (!state.user || syncing) return;
   syncing = true;
   try {
-    const remote = await fetchRemote();
-    const rmap = new Map(remote.map((r) => [r.kind + ':' + r.item_id, r]));
+    // 省流量：先只抓輕量的清單（kind/item_id/時間/是否刪除），不含大張圖片資料
+    const meta = await fetchRemoteMeta();
+    const rmap = new Map(meta.map((r) => [r.kind + ':' + r.item_id, r]));
     const local = await collectLocal();
-    // 雲端較新 → 覆蓋本機；雲端墓碑 → 刪本機
+    const lmap = new Map(local.map((l) => [l.kind + ':' + l.item_id, l]));
     let changed = false;
-    for (const r of remote) {
-      const l = local.find((x) => x.kind === r.kind && x.item_id === r.item_id);
+    // 雲端墓碑 → 刪本機；雲端較新 / 本機沒有 → 記下來稍後只抓這幾筆的完整資料
+    const need = [];
+    for (const r of meta) {
+      const l = lmap.get(r.kind + ':' + r.item_id);
       const rt = new Date(r.updated_at).getTime();
       if (r.deleted) { if (l && rt >= l.updated_at) { removeLocalItem(r.kind, r.item_id); changed = true; } continue; }
-      if (!l || rt > l.updated_at) { applyLocal(r.kind, r.data, r.item_id); changed = true; }
+      if (!l || rt > l.updated_at) need.push(r.item_id);
+    }
+    if (need.length) {
+      const rows = await fetchRemoteData(need);
+      for (const r of rows) { if (!r.deleted) { applyLocal(r.kind, r.data, r.item_id); changed = true; } }
     }
     // 本機較新 / 雲端沒有 → 推上去
     const toPush = [];
@@ -1385,8 +1392,8 @@ function pullIfIdle() {
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') pullIfIdle(); });
 window.addEventListener('focus', pullIfIdle);
-// 開著時每 25 秒自動拉一次，讓其他裝置的新增 / 刪除 / 分類自動出現（不用手動重整）
-setInterval(() => { if (state.user && document.visibilityState === 'visible' && !syncing) syncNow(true); }, 25000);
+// 開著時每 60 秒自動拉一次（只抓輕量清單，很省流量），讓其他裝置的新增 / 刪除自動出現
+setInterval(() => { if (state.user && document.visibilityState === 'visible' && !syncing) syncNow(true); }, 60000);
 
 // =============================================================
 //  拖曳新增（電腦檔案 / 素材庫）＋ 點畫布以外空白處也取消選取

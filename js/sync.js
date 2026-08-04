@@ -69,6 +69,28 @@ export async function fetchRemote() {
   if (error) throw error;
   return data || [];
 }
+// 省流量：先只抓「輕量欄位」（不含 data 這個可能很大的 base64 圖），
+// 用來比對哪些項目真的有變動；避免每次輪詢都把所有圖片重新下載一遍。
+export async function fetchRemoteMeta() {
+  const s = await getClient();
+  const { data, error } = await s.from('items').select('kind,item_id,updated_at,deleted');
+  if (error) throw error;
+  return data || [];
+}
+// 只針對「真的比較新 / 本機沒有」的少數項目，才抓完整 data。
+export async function fetchRemoteData(itemIds) {
+  if (!itemIds || !itemIds.length) return [];
+  const s = await getClient();
+  const out = [];
+  // 分批查詢，避免 item_id 清單太長讓 URL 過長
+  for (let i = 0; i < itemIds.length; i += 50) {
+    const chunk = itemIds.slice(i, i + 50);
+    const { data, error } = await s.from('items').select('kind,item_id,data,deleted,updated_at').in('item_id', chunk);
+    if (error) throw error;
+    if (data) out.push(...data);
+  }
+  return out;
+}
 export async function pushRemote(rows) {
   if (!rows.length) return;
   const s = await getClient();
