@@ -1358,7 +1358,21 @@ renderGallery();
 
 // 若已設定並登入過，載入時自動同步
 updateSyncBtn();
-currentUser().then((u) => { state.user = u; updateSyncBtn(); if (u) syncNow(true); }).catch(() => {});
+// 記下 GitHub 登入導回時網址帶的狀態（Supabase 會很快把 ?code 從網址清掉，先抓下來）
+const _authCb = (function () {
+  const s = location.search + location.hash;
+  const err = s.match(/[?&#]error_description=([^&]+)/) || s.match(/[?&#]error=([^&]+)/);
+  return { hadCode: /[?&#]code=/.test(s), error: err ? decodeURIComponent(err[1].replace(/\+/g, ' ')) : null };
+})();
+currentUser().then(async (u) => {
+  // 剛登入導回時，交換 session 可能還沒完成，沒抓到就再等一下重試一次
+  if (!u && _authCb.hadCode) { await new Promise((r) => setTimeout(r, 700)); try { u = await currentUser(); } catch (_) {} }
+  state.user = u; updateSyncBtn(); if (u) syncNow(true);
+  // 讓「登入不了」不再是靜悄悄失敗 —— 明確告訴使用者原因
+  if (_authCb.error) toast('GitHub 登入失敗：' + _authCb.error);
+  else if (_authCb.hadCode && u) toast('登入成功 ✓');
+  else if (_authCb.hadCode && !u) toast('登入沒接上：請確認 Supabase 後台 Authentication → URL Configuration 的 Redirect URLs 有加入本網站網址，且專案沒有被暫停。');
+}).catch((e) => { if (_authCb.hadCode) toast('登入失敗：' + ((e && e.message) || e)); });
 
 // 切回這個分頁 / 視窗重新聚焦時，自動拉一次雲端（讓其他裝置的新增/刪除即時出現）
 let lastPull = 0;
