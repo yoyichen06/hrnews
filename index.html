@@ -10,7 +10,11 @@
   <!-- 自動更新：偵測到伺服器上有新版本就自動重新整理一次，手機也不用手動清快取 -->
   <script>
     (function () {
-      var CURRENT = '20260723c';
+      var CURRENT = '20260723d';
+      // 登入導回時網址會帶 OAuth 參數（?code=... / #access_token=...），
+      // 這種時候絕對不要自動重新整理，否則會打斷 GitHub 登入、同步就會壞掉。
+      var q = location.search + ' ' + location.hash;
+      if (/[?&#](code|access_token|refresh_token|error|error_description)=/.test(q)) return;
       try {
         fetch('version.txt?ts=' + Date.now(), { cache: 'no-store' })
           .then(function (r) { return r.ok ? r.text() : ''; })
@@ -34,7 +38,7 @@
     href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;700;900&family=Oswald:wght@400;500;700&family=Rajdhani:wght@500;700&family=Teko:wght@400;500;700&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="./css/style.css?v=20260723c" />
+  <link rel="stylesheet" href="./css/style.css?v=20260723d" />
 </head>
 <body>
   <header class="app-header">
@@ -178,6 +182,6 @@
   <div id="modalRoot"></div>
   <div id="toast" class="toast" hidden></div>
 
-  <script type="module" src="./js/app.js?v=20260723c"></script>
+  <script type="module" src="./js/app.js?v=20260723d"></script>
 </body>
 </html>

@@ -1063,9 +1063,16 @@ async function syncNow(silent) {
     if (!silent) toast('已同步 ✓');
   } catch (e) {
     const msg = (e && (e.message || e.error_description || e.details || e.hint)) || String(e);
-    // 常見：Supabase 還沒建 items 表 → 給明確提示
-    lastSyncError = /items/i.test(msg) && /(exist|relation|not found|schema cache|table)/i.test(msg)
-      ? '雲端還沒建立資料表，請照說明在 Supabase 執行一次 SQL' : msg;
+    // 給出「看得懂、知道怎麼修」的提示
+    if (/items/i.test(msg) && /(exist|relation|not found|schema cache|table)/i.test(msg)) {
+      lastSyncError = '雲端還沒建立資料表，請照說明在 Supabase 執行一次 SQL';
+    } else if (/failed to fetch|networkerror|load failed|fetch|connect|timeout|503|502|econnrefused|name_not_resolved/i.test(msg)) {
+      lastSyncError = '連不上雲端伺服器。常見原因：Supabase 免費專案閒置太久被自動暫停了 —— 請登入 supabase.com 後台，把這個專案按「Restore / Resume」喚醒後再試（也可能是暫時的網路問題）。';
+    } else if (/jwt|token|unauthorized|401|invalid|expired|session/i.test(msg)) {
+      lastSyncError = '登入狀態過期，請打開「☁ 同步」重新登入一次。';
+    } else {
+      lastSyncError = msg;
+    }
     updateSyncBtn();
     if (!silent) toast('同步失敗：' + lastSyncError);
   } finally { syncing = false; }
